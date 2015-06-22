@@ -1,8 +1,13 @@
 import logging
-import warnings
 import numpy as np
 
+__all__ = ['logger', 'pso']
+
 logger = logging.getLogger('pso')
+s = logging.StreamHandler()
+f = logging.Formatter('%(name)s [%(levelname)s]: %(message)s')
+s.setFormatter(f)
+logger.addHandler(s)
 
 
 def pso(func, lb, ub, ieqcons=[], f_ieqcons=None, args=(), kwargs={}, 
@@ -167,6 +172,6 @@ def pso(func, lb, ub, ieqcons=[], f_ieqcons=None, args=(), kwargs={},
     logger.debug('Stopping search: maximum iterations reached --> '
                  '{}'.format(maxiter))
     if g is []:
-        warnings.warn('No feasible point found')
+        logger.warning('No feasible point found')
     return g, fg
 

@@ -8,7 +8,7 @@ def banana_surface(point):
     return x**4 - 2*y*x**2 + y**2 + x**2 - 2*x + 5
 
 
-def constrain(point):
+def constrain_banana(point):
     x, y = point
     return [-(x + 0.25)**2 + 0.75*y]
 
@@ -29,10 +29,13 @@ class TestPSO(unittest.TestCase):
 
     def test_pso_banana_constrained(self):
         x, f = pso(banana_surface, self.low_bound, self.up_bound,
-                   f_ieqcons=constrain, maxiter=10000, swarmsize=50)
+                   f_ieqcons=constrain_banana, maxiter=10000, swarmsize=50)
         x, y = x
         self.assertTrue(0.43 < x < 0.52)
         self.assertTrue(0.68 < y < 0.85)
+
+    def test_examples_work(self):
+        import pso_examples
 
 
 if __name__ == '__main__':

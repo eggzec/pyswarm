@@ -10,10 +10,9 @@ def myfunc(x):
     x2 = x[1]
     return x1**4 - 2*x2*x1**2 + x2**2 + x1**2 - 2*x1 + 5
 
-lb = [-3, -1]
-ub = [2, 6]
+bounds = [(-3, 2), (-1, 6)]
 
-xopt1, fopt1 = pso(myfunc, lb, ub)
+xopt1, fopt1 = pso(myfunc, bounds)
 
 print('The optimum is at:')
 print('    {}'.format(xopt1))
@@ -29,7 +28,7 @@ def mycon(x):
     x2 = x[1]
     return [-(x1 + 0.25)**2 + 0.75*x2]
 
-xopt2, fopt2 = pso(myfunc, lb, ub, f_ieqcons=mycon)
+xopt2, fopt2 = pso(myfunc, bounds, f_ieqcons=mycon)
 
 print('The optimum is at:')
 print('    {}'.format(xopt2))
@@ -75,9 +74,8 @@ rho = 0.3  # lb/in^3
 E = 30000  # kpsi
 P = 66  # lb (force)
 args = (B, rho, E, P)
-lb = [10, 1, 0.01]
-ub = [30, 3, 0.25]
-xopt4, fopt4 = pso(weight, lb, ub, f_ieqcons=mycons, args=args)
+bounds = [(10, 30), (1, 3), (0.01, 0.25)]
+xopt4, fopt4 = pso(weight, bounds, f_ieqcons=mycons, args=args)
 
 print('The optimum is at:')
 print('    {}'.format(xopt4))

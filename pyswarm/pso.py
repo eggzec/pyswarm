@@ -125,7 +125,7 @@ def pso(func, lb, ub, ieqcons=[], f_ieqcons=None, args=(), kwargs={},
     obj = partial(_obj_wrapper, func, args, kwargs)
 
     # Check for constraint function(s)
-    if f_ieqcons is None:
+    if not f_ieqcons:
         if not len(ieqcons):
             log.debug('No constraints given.')
             cons = _cons_none_wrapper
@@ -242,8 +242,7 @@ def pso(func, lb, ub, ieqcons=[], f_ieqcons=None, args=(), kwargs={},
                 g = p_min.copy()
                 fg = fp[i_min]
 
-        if debug:
-            log.info('Best after iteration {:}: {:} {:}'.format(it, g, fg))
+        log.debug('Best after iteration {:}: {:} {:}'.format(it, g, fg))
         it += 1
 
     log.info('Stopping search: maximum '
@@ -254,5 +253,4 @@ def pso(func, lb, ub, ieqcons=[], f_ieqcons=None, args=(), kwargs={},
                  "find a feasible design. Sorry")
     if particle_output:
         return g, fg, p, fp
-    else:
-        return g, fg
+    return g, fg

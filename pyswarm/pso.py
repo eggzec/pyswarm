@@ -94,12 +94,16 @@ def pso(func, lb, ub, ieqcons=[], f_ieqcons=None, args=(), kwargs={},
 
     """  # noqa: docstring allowed to exceed 80 chars
 
-    assert len(lb) == len(ub), 'Lower- and upper-bounds must be the same length'
-    assert hasattr(func, '__call__'), 'Invalid function handle'
+    if len(lb) != len(ub):
+        raise ValueError('Lower- and upper-bounds must be the same length')
+
+    if not hasattr(func, '__call__'):
+        raise TypeError('Invalid function handle')
     lb = np.array(lb)
     ub = np.array(ub)
-    assert np.all(
-        ub > lb), 'All upper-bound values must be greater than lower-bound values'
+    if np.any(ub <= lb):
+        raise ValueError('All upper-bound values must be greater '
+                         'than lower-bound values')
 
     vhigh = np.abs(ub - lb)
     vlow = -vhigh
@@ -233,8 +237,8 @@ def pso(func, lb, ub, ieqcons=[], f_ieqcons=None, args=(), kwargs={},
             print('Best after iteration {:}: {:} {:}'.format(it, g, fg))
         it += 1
 
-    print(
-        'Stopping search: maximum iterations reached --> {:}'.format(maxiter))
+    print('Stopping search: maximum '
+          'iterations reached --> {:}'.format(maxiter))
 
     if not is_feasible(g):
         print("However, the optimization couldn't "

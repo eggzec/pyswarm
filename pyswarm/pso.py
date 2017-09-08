@@ -2,6 +2,7 @@
 # coding=utf8
 
 import logging
+import multiprocessing as mp
 from functools import partial
 
 import numpy as np
@@ -35,6 +36,7 @@ def _cons_f_ieqcons_wrapper(f_ieqcons, args, kwargs, x):
 def pso(func, lb, ub, ieqcons=[], f_ieqcons=None, args=(), kwargs={},
         swarmsize=100, omega=0.5, phip=0.5, phig=0.5, maxiter=100,
         minstep=1e-8, minfunc=1e-8, debug=False, processes=1,
+        pool=mp.Pool,
         particle_output=False):
     """
     Perform a particle swarm optimization (PSO)
@@ -87,6 +89,7 @@ def pso(func, lb, ub, ieqcons=[], f_ieqcons=None, args=(), kwargs={},
     processes : int
         The number of processes to use to evaluate objective function and
         constraints (default: 1)
+    pool : pool like object (default: multiprocessing.Pool)
     particle_output : boolean
         Whether to include the best per-particle position and the objective
         values at those.
@@ -138,9 +141,10 @@ def pso(func, lb, ub, ieqcons=[], f_ieqcons=None, args=(), kwargs={},
     is_feasible = partial(_is_feasible_wrapper, cons)
 
     # Initialize the multiprocessing module if necessary
+    map_function = map
     if processes > 1:
-        import multiprocessing
-        mp_pool = multiprocessing.Pool(processes)
+        pool = pool(processes)
+        map_function = pool.map
 
     # Initialize the particle swarm
     S = swarmsize
@@ -158,13 +162,8 @@ def pso(func, lb, ub, ieqcons=[], f_ieqcons=None, args=(), kwargs={},
     x = lb + x * (ub - lb)
 
     # Calculate objective and constraints for each particle
-    if processes > 1:
-        fx = np.array(mp_pool.map(obj, x))
-        fs = np.array(mp_pool.map(is_feasible, x))
-    else:
-        for i in range(S):
-            fx[i] = obj(x[i, :])
-            fs[i] = is_feasible(x[i, :])
+    fx = np.array(list(map_function(obj, x)))
+    fs = np.array(list(map_function(is_feasible, x)))
 
     # Store particle's best position (if constraints are satisfied)
     i_update = np.logical_and((fx < fp), fs)
@@ -199,13 +198,8 @@ def pso(func, lb, ub, ieqcons=[], f_ieqcons=None, args=(), kwargs={},
         x = x * (~np.logical_or(maskl, masku)) + lb * maskl + ub * masku
 
         # Update objectives and constraints
-        if processes > 1:
-            fx = np.array(mp_pool.map(obj, x))
-            fs = np.array(mp_pool.map(is_feasible, x))
-        else:
-            for i in range(S):
-                fx[i] = obj(x[i, :])
-                fs[i] = is_feasible(x[i, :])
+        fx = np.array(list(map_function(obj, x)))
+        fs = np.array(list(map_function(is_feasible, x)))
 
         # Store particle's best position (if constraints are satisfied)
         i_update = np.logical_and((fx < fp), fs)

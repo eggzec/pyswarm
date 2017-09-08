@@ -185,8 +185,7 @@ def pso(func, lb, ub, ieqcons=[], f_ieqcons=None, args=(), kwargs={},
     v = vlow + np.random.rand(S, D) * (vhigh - vlow)
 
     # Iterate until termination criterion met
-    it = 1
-    while it <= maxiter:
+    for it in range(maxiter):
         rp = np.random.uniform(size=(S, D))
         rg = np.random.uniform(size=(S, D))
 
@@ -243,7 +242,6 @@ def pso(func, lb, ub, ieqcons=[], f_ieqcons=None, args=(), kwargs={},
                 fg = fp[i_min]
 
         log.debug('Best after iteration {:}: {:} {:}'.format(it, g, fg))
-        it += 1
 
     log.info('Stopping search: maximum '
              'iterations reached --> {:}'.format(maxiter))

@@ -1,8 +1,15 @@
 #!/usr/bin/env python
 # coding=utf8
 
+import logging
 from functools import partial
+
 import numpy as np
+
+log = logging.getLogger(__name__)
+log.handlers = []
+log.addHandler(logging.StreamHandler())
+log.setLevel("INFO")
 
 
 def _obj_wrapper(func, args, kwargs, x):
@@ -97,6 +104,9 @@ def pso(func, lb, ub, ieqcons=[], f_ieqcons=None, args=(), kwargs={},
 
     """  # noqa: docstring allowed to exceed 80 chars
 
+    if debug:
+        log.setLevel("DEBUG")
+
     if len(lb) != len(ub):
         raise ValueError('Lower- and upper-bounds must be the same length')
 
@@ -117,16 +127,13 @@ def pso(func, lb, ub, ieqcons=[], f_ieqcons=None, args=(), kwargs={},
     # Check for constraint function(s)
     if f_ieqcons is None:
         if not len(ieqcons):
-            if debug:
-                print('No constraints given.')
+            log.debug('No constraints given.')
             cons = _cons_none_wrapper
         else:
-            if debug:
-                print('Converting ieqcons to a single constraint function')
+            log.debug('Converting ieqcons to a single constraint function')
             cons = partial(_cons_ieqcons_wrapper, ieqcons, args, kwargs)
     else:
-        if debug:
-            print('Single constraint function given in f_ieqcons')
+        log.debug('Single constraint function given in f_ieqcons')
         cons = partial(_cons_f_ieqcons_wrapper, f_ieqcons, args, kwargs)
     is_feasible = partial(_is_feasible_wrapper, cons)
 
@@ -209,25 +216,24 @@ def pso(func, lb, ub, ieqcons=[], f_ieqcons=None, args=(), kwargs={},
         # Compare swarm's best position with global best position
         i_min = np.argmin(fp)
         if fp[i_min] < fg:
-            if debug:
-                print('New best for swarm at iteration {:}: {:} {:}'
+            log.debug('New best for swarm at iteration {:}: {:} {:}'
                       .format(it, p[i_min, :], fp[i_min]))
 
             p_min = p[i_min, :].copy()
             stepsize = np.sqrt(np.sum((g - p_min)**2))
 
             if np.abs(fg - fp[i_min]) <= minfunc:
-                print('Stopping search: '
-                      'Swarm best objective change less than {:}'
-                      .format(minfunc))
+                log.info('Stopping search: '
+                         'Swarm best objective change less than {:}'
+                         .format(minfunc))
                 if particle_output:
                     return p_min, fp[i_min], p, fp
                 else:
                     return p_min, fp[i_min]
             elif stepsize <= minstep:
-                print('Stopping search: '
-                      'Swarm best position change less than {:}'
-                      .format(minstep))
+                log.info('Stopping search: '
+                         'Swarm best position change less than {:}'
+                         .format(minstep))
                 if particle_output:
                     return p_min, fp[i_min], p, fp
                 else:
@@ -237,15 +243,15 @@ def pso(func, lb, ub, ieqcons=[], f_ieqcons=None, args=(), kwargs={},
                 fg = fp[i_min]
 
         if debug:
-            print('Best after iteration {:}: {:} {:}'.format(it, g, fg))
+            log.info('Best after iteration {:}: {:} {:}'.format(it, g, fg))
         it += 1
 
-    print('Stopping search: maximum '
-          'iterations reached --> {:}'.format(maxiter))
+    log.info('Stopping search: maximum '
+             'iterations reached --> {:}'.format(maxiter))
 
     if not is_feasible(g):
-        print("However, the optimization couldn't "
-              "find a feasible design. Sorry")
+        log.info("However, the optimization couldn't "
+                 "find a feasible design. Sorry")
     if particle_output:
         return g, fg, p, fp
     else:

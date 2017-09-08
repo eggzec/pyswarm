@@ -48,7 +48,7 @@ def weight(x, *args):
     H, d, t = x  # all in inches
     B, rho, E, P = args
     return rho*2*np.pi*d*t*np.sqrt((B/2)**2 + H**2)
-    
+
 def stress(x, *args):
     H, d, t = x  # all in inches
     B, rho, E, P = args

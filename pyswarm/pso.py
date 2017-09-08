@@ -36,7 +36,7 @@ def _cons_f_ieqcons_wrapper(f_ieqcons, args, kwargs, x):
 def pso(func, lb, ub, ieqcons=[], f_ieqcons=None, args=(), kwargs={},
         swarmsize=100, omega=0.5, phip=0.5, phig=0.5, maxiter=100,
         minstep=1e-8, minfunc=1e-8, debug=False, processes=1,
-        pool=mp.Pool,
+        pool=None,
         particle_output=False):
     """
     Perform a particle swarm optimization (PSO)
@@ -143,7 +143,8 @@ def pso(func, lb, ub, ieqcons=[], f_ieqcons=None, args=(), kwargs={},
     # Initialize the multiprocessing module if necessary
     map_function = map
     if processes > 1:
-        pool = pool(processes)
+        if not pool:
+            pool = mp.Pool(processes)
         map_function = pool.map
 
     # Initialize the particle swarm

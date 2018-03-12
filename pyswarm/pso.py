@@ -118,8 +118,12 @@ def pso(func, lb, ub, ieqcons=[], f_ieqcons=None, args=(), kwargs={},
 
     # Initialize the multiprocessing module if necessary
     if processes > 1:
-        import multiprocessing
-        mp_pool = multiprocessing.Pool(processes)
+        try:
+            from pathos.multiprocessing import ProcessingPool as Pool
+        except ImportError:
+            from multiprocessing import Pool
+        
+        mp_pool = Pool(processes)
         
     # Initialize the particle swarm ############################################
     S = swarmsize

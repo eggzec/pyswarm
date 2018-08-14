@@ -18,7 +18,7 @@ def _cons_f_ieqcons_wrapper(f_ieqcons, args, kwargs, x):
     
 def pso(func, lb, ub, ieqcons=[], f_ieqcons=None, args=(), kwargs={}, 
         swarmsize=100, omega=0.5, phip=0.5, phig=0.5, maxiter=100, 
-        minstep=1e-8, minfunc=1e-8, debug=False, processes=1,
+        minstep=1e-8, minfunc=1e-8, debug=False, pool=None,
         particle_output=False):
     """
     Perform a particle swarm optimization (PSO)
@@ -68,9 +68,10 @@ def pso(func, lb, ub, ieqcons=[], f_ieqcons=None, args=(), kwargs={},
     debug : boolean
         If True, progress statements will be displayed every iteration
         (Default: False)
-    processes : int
-        The number of processes to use to evaluate objective function and 
-        constraints (default: 1)
+    pool : object
+        An instantiated multiprocessing.Pool or similar with a map
+        method for evaluating objective function and constraints
+        (default: None)
     particle_output : boolean
         Whether to include the best per-particle position and the objective
         values at those.
@@ -116,11 +117,6 @@ def pso(func, lb, ub, ieqcons=[], f_ieqcons=None, args=(), kwargs={},
         cons = partial(_cons_f_ieqcons_wrapper, f_ieqcons, args, kwargs)
     is_feasible = partial(_is_feasible_wrapper, cons)
 
-    # Initialize the multiprocessing module if necessary
-    if processes > 1:
-        import multiprocessing
-        mp_pool = multiprocessing.Pool(processes)
-        
     # Initialize the particle swarm ############################################
     S = swarmsize
     D = len(lb)  # the number of dimensions each particle has
@@ -137,9 +133,9 @@ def pso(func, lb, ub, ieqcons=[], f_ieqcons=None, args=(), kwargs={},
     x = lb + x*(ub - lb)
 
     # Calculate objective and constraints for each particle
-    if processes > 1:
-        fx = np.array(mp_pool.map(obj, x))
-        fs = np.array(mp_pool.map(is_feasible, x))
+    if pool:
+        fx = np.array(pool.map(obj, x))
+        fs = np.array(pool.map(is_feasible, x))
     else:
         for i in range(S):
             fx[i] = obj(x[i, :])
@@ -179,9 +175,9 @@ def pso(func, lb, ub, ieqcons=[], f_ieqcons=None, args=(), kwargs={},
         x = x*(~np.logical_or(maskl, masku)) + lb*maskl + ub*masku
 
         # Update objectives and constraints
-        if processes > 1:
-            fx = np.array(mp_pool.map(obj, x))
-            fs = np.array(mp_pool.map(is_feasible, x))
+        if pool:
+            fx = np.array(pool.map(obj, x))
+            fs = np.array(pool.map(is_feasible, x))
         else:
             for i in range(S):
                 fx[i] = obj(x[i, :])

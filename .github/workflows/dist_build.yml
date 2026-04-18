@@ -1,0 +1,40 @@
+name: Build Distribution
+
+on:
+  workflow_call:
+    outputs:
+      artifact_name:
+        value: ${{ jobs.build.outputs.artifact_name }}
+      run_id:
+        value: ${{ github.run_id }}
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Setup uv
+        uses: astral-sh/setup-uv@v7
+
+      - name: Build distribution
+        run: uv build -v --clear .
+
+      - name: Set Artifact Name
+        id: artifact-name
+        run: |
+          echo "artifact_name=${{ github.run_id }}[${{ github.run_attempt }}]--build-artifacts" \
+          | tee -a $GITHUB_OUTPUT
+
+      - name: Upload Build Artifacts
+        uses: actions/upload-artifact@v7
+        with:
+          name: ${{ steps.artifact-name.outputs.artifact_name }}
+          path: dist
+          if-no-files-found: error
+
+    outputs:
+      artifact_name: ${{ steps.artifact-name.outputs.artifact_name }}

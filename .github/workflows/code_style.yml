@@ -1,0 +1,36 @@
+name: Lint and Format
+
+on:
+  push:
+    branches: [ master ]
+
+  pull_request:
+    branches: [ master ]
+    paths: [ '**/*.py' ]
+
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}/${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  python-format:
+    name: Ruff Lint and Format
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v6
+
+      - name: Setup Ruff
+        uses: astral-sh/ruff-action@v3
+        with:
+          args: --version
+
+      - name: Enforce Lint
+        run: ruff check pyswarm
+
+      - name: Enforce Format
+        run: |
+          ruff format --diff pyswarm

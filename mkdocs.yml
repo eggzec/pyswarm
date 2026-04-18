@@ -1,0 +1,51 @@
+site_name: pyswarm
+site_description: Particle Swarm Optimization (PSO) for Python
+site_url: https://eggzec.github.io/pyswarm
+repo_url: https://github.com/eggzec/pyswarm
+repo_name: eggzec/pyswarm
+
+extra:
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/eggzec/pyswarm
+    - icon: fontawesome/brands/python
+      link: https://pypi.org/project/pyswarm/
+
+theme:
+  name: material
+  features:
+    - content.code.copy
+  logo: _static/favicon.ico
+  favicon: _static/favicon.ico
+
+markdown_extensions:
+  - attr_list
+  - md_in_html
+  - pymdownx.blocks.caption
+  - tables
+  - toc:
+      permalink: true
+      title: Page contents
+  - admonition
+  - pymdownx.details
+  - pymdownx.superfences
+  - pymdownx.highlight:
+      pygments_lang_class: true
+  - pymdownx.emoji:
+      emoji_index: !!python/name:material.extensions.emoji.twemoji
+      emoji_generator: !!python/name:material.extensions.emoji.to_svg
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.arithmatex:
+      generic: true
+
+extra_javascript:
+  - https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js
+
+nav:
+  - Home: index.md
+  - Theory: theory.md
+  - Installation: installation.md
+  - Quickstart: quickstart.md
+  - API Reference: api.md
+  - References: references.md

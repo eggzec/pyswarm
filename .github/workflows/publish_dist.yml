@@ -1,0 +1,56 @@
+name: Publish to PyPI
+
+on:
+  release:
+    types: [published]
+
+permissions:
+  id-token: write
+
+concurrency:
+  group: ${{ github.workflow }}
+
+jobs:
+  testing:
+    uses: ./.github/workflows/code_test.yml
+
+  publish-to-pypi:
+    runs-on: ubuntu-latest
+
+    environment:
+      name: pypi
+
+    needs: testing
+
+    steps:
+
+      - &download_dist
+        name: Download Distributions
+        uses: actions/download-artifact@v8
+        with:
+          name: ${{ needs.testing.outputs.artifact_name }}
+          run-id: ${{ needs.testing.outputs.artifact_run_id }}
+          path: ./dist
+
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          verbose: true
+
+      - name: Smoke Test on PyPI
+        shell: bash
+        run: |
+          sleep 60
+          pip install -v --index-url https://pypi.org/simple/ pyswarm
+          python -c "import pyswarm;print(pyswarm.__version__)"
+
+  publish_docs:
+    needs: publish-to-pypi
+
+    permissions:
+      pages: write
+      id-token: write
+
+    uses: ./.github/workflows/docs_build.yml
+    with:
+      deploy: true

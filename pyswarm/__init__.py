@@ -1,17 +1,24 @@
 """
-================================================================================
-pyswarm: Particle swarm optimization (PSO) with constraint support
-================================================================================
+===========================================
+PySwarm: Particle Swarm Optimization (PSO)
+===========================================
 
 Authors: Abraham Lee
          Sebastian Castillo-Hair
-Copyright: 2013-2015
+         Saud Zahir
 
+Copyright (c) 2013, Abraham D. Lee
 """
-# from __future__ import absolute_import
 
-__author__ = 'Abraham Lee'
-__version__ = '0.7'
+from importlib.metadata import PackageNotFoundError, version
 
-from pyswarm.pso import *
-    
+
+try:
+    __version__ = version(__name__)
+except PackageNotFoundError:
+    __version__ = "unknown"
+
+from pyswarm.pso import pso
+
+
+__all__ = ["pso"]

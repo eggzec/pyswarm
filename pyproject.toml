@@ -1,0 +1,128 @@
+[build-system]
+requires = ["hatchling >= 1.26", "hatch-vcs"]
+build-backend = "hatchling.build"
+
+[project]
+name = "pyswarm"
+dynamic = ["version"]
+description = "Particle Swarm Optimization (PSO) for Python"
+authors = [
+    { name = "Abraham Lee", email = "tisimst@gmail.com" },
+]
+maintainers = [
+    { name = "Saud Zahir", email = "m.saud.zahir@gmail.com" },
+    { name = "M Laraib Ali", email = "laraibg786@outlook.com" }
+]
+readme = "README.md"
+license = "BSD-3-Clause"
+keywords = [
+    "particle",
+    "swarm",
+    "optimization",
+    "python",
+]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Science/Research",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: BSD License",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Programming Language :: Python :: 3 :: Only",
+    "Topic :: Software Development",
+    "Topic :: Scientific/Engineering",
+    "Operating System :: OS Independent",
+    "Operating System :: Microsoft :: Windows",
+    "Operating System :: POSIX",
+    "Operating System :: Unix",
+    "Operating System :: MacOS",
+]
+dependencies = [
+    "numpy",
+]
+requires-python = ">=3.10"
+
+[project.urls]
+homepage = "https://eggzec.github.io/pyswarm/"
+documentation = "https://eggzec.github.io/pyswarm/"
+source = "https://github.com/eggzec/pyswarm"
+# TODO: provide changelog URL from docs
+releasenotes = "https://github.com/eggzec/pyswarm/releases/latest"
+issues = "https://github.com/eggzec/pyswarm/issues"
+
+[dependency-groups]
+dev = [
+  {include-group = "docs"},
+  {include-group = "lint"},
+  {include-group = "test"}
+]
+docs = [
+    "zensical>=0.0.23",
+    "mkdocstrings[python]>=0.30.1"
+]
+lint = [
+    "ruff==0.15.*",
+]
+test = [
+    "pytest>=8.3.5",
+    "pytest-cov>=7.0.0",
+    "pytest-xdist>=3.6.1",
+]
+
+[tool.hatch.version]
+source = "vcs"
+
+[tool.ruff]
+line-length = 80
+indent-width = 4
+preview = true
+
+# Output serialization format for violations. The default serialization
+# format is "full" [env: RUFF_OUTPUT_FORMAT=] [possible values:
+# concise, full, json, json-lines, junit, grouped, github, gitlab,
+# pylint, rdjson, azure, sarif]
+output-format = "grouped"
+
+[tool.ruff.lint]
+isort.lines-after-imports = 2
+isort.split-on-trailing-comma = false
+
+select = [
+    "ANN", # flake8-annotations (required strict type annotations for public functions)
+    "S",   # flake8-bandit (checks basic security issues in code)
+    "BLE", # flake8-blind-except (checks the except blocks that do not specify exception)
+    "FBT", # flake8-boolean-trap (ensure that boolean args can be used with kw only)
+    "E",   # pycodestyle errors (PEP 8 style guide violations)
+    "W",   # pycodestyle warnings (e.g., extra spaces, indentation issues)
+    "DOC", # pydoclint issues (e.g., extra or missing return, yield, warnings)
+    "A",   # flake8-buitins (check variable and function names to not shadow builtins)
+    "N",   # Naming convention checks (e.g., PEP 8 variable and function names)
+    "F",   # Pyflakes errors (e.g., unused imports, undefined variables)
+    "I",   # isort (Ensures imports are sorted properly)
+    "B",   # flake8-bugbear (Detects likely bugs and bad practices)
+    "TID", # flake8-tidy-imports (Checks for banned or misplaced imports)
+    "UP",  # pyupgrade (Automatically updates old Python syntax)
+    "YTT", # flake8-2020 (Detects outdated Python 2/3 compatibility issues)
+    "FLY", # flynt (Converts old-style string formatting to f-strings)
+    "PIE", # flake8-pie
+    "PL",  # pylint
+    "RUF", # Ruff-specific rules (Additional optimizations and best practices)
+]
+
+ignore = []
+
+[tool.ruff.lint.per-file-ignores]
+"**/__init__.py" = ["RUF067"]
+"tests/*.py" = []
+
+[tool.ruff.format]
+docstring-code-format = true
+skip-magic-trailing-comma = true
+
+[tool.pytest.ini_options]
+addopts = "--doctest-modules"

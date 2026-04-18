@@ -1,0 +1,52 @@
+name: Build Documentation
+permissions:
+  pages: write
+  id-token: write
+
+on:
+  pull_request:
+    branches: [ master ]
+  workflow_call:
+    inputs: &build-docs-inputs
+      deploy:
+        type: boolean
+        required: false
+        default: false
+
+  workflow_dispatch:
+    inputs: *build-docs-inputs
+
+concurrency:
+  group: docs-build
+
+jobs:
+
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Setup uv
+        uses: astral-sh/setup-uv@v7
+
+      - name: Build Documentation
+        run: uv run --no-dev --group docs zensical build --clean --strict
+
+      - name: Set Artifact Name
+        id: artifact-name
+        run: |
+          echo "artifact_name=${{ github.run_id }}[${{ github.run_attempt }}]--docs-artifacts" \
+          | tee -a $GITHUB_OUTPUT
+
+      - name: Upload Pages Artifacts
+        uses: actions/upload-pages-artifact@v5
+        with:
+          name: ${{ steps.artifact-name.outputs.artifact_name }}
+          path: site/
+
+      - name: Deploy to GitHub Pages
+        if: ${{ inputs.deploy }}
+        uses: actions/deploy-pages@v5
+        with:
+          artifact_name: ${{ steps.artifact-name.outputs.artifact_name }}

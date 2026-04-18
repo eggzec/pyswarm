@@ -1,0 +1,99 @@
+name: Code Test
+
+on:
+  push:
+    branches: [ master ]
+
+  pull_request:
+    branches: [ master ]
+
+  schedule:
+    - cron: "0 0 * * 0"  # Runs every Sunday at midnight UTC
+
+  workflow_dispatch:
+  workflow_call:
+    outputs:
+      artifact_name:
+        value: ${{ jobs.fresh_build.outputs.artifact_name }}
+      artifact_run_id:
+        value: ${{ jobs.fresh_build.outputs.run_id }}
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+
+  setup:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Fetch Supported Python
+        id: fetch-versions
+        run: |
+          versions=$(curl -fsSL https://endoflife.date/api/v1/products/python/ \
+                     | jq '[ .result.releases[] | select(.isEol == false) | .label ]')
+
+          echo "supported_versions=$(echo $versions |jq -c '.')"        >> $GITHUB_OUTPUT
+          echo "bound_versions=$(echo $versions |jq -c '[.[0],.[-1]]')" >> $GITHUB_OUTPUT
+
+    outputs:
+      supported_versions: ${{ steps.fetch-versions.outputs.supported_versions }}
+      bound_versions: ${{ steps.fetch-versions.outputs.bound_versions }}
+
+  fresh_build:
+    uses: ./.github/workflows/dist_build.yml
+
+  testing:
+    runs-on: ${{ matrix.os }}
+
+    permissions:
+      id-token: write  # for working of oidc of codecov
+
+    strategy:
+      matrix:
+        os: [ ubuntu-latest ]
+        py-version: ${{ fromJson(needs.setup.outputs.supported_versions) }}
+        include:
+          - os: windows-latest
+            py-version: ${{ fromJson(needs.setup.outputs.bound_versions)[0] }}
+          - os: windows-latest
+            py-version: ${{ fromJson(needs.setup.outputs.bound_versions)[1] }}
+          - os: macos-latest
+            py-version: ${{ fromJson(needs.setup.outputs.bound_versions)[0] }}
+          - os: macos-latest
+            py-version: ${{ fromJson(needs.setup.outputs.bound_versions)[1] }}
+
+    needs:
+      - fresh_build
+      - setup
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Download Build Artifacts
+        uses: actions/download-artifact@v8
+        with:
+          name: ${{ needs.fresh_build.outputs.artifact_name }}
+          run-id: ${{ needs.fresh_build.outputs.run_id }}
+          path: ./dist
+
+      - uses: astral-sh/setup-uv@v7
+        with:
+          python-version: ${{ matrix.py-version }}
+
+      - name: Install Packages
+        shell: bash
+        run: |
+          uv sync --no-dev --group test
+          uv pip install -v ./dist/*.whl
+
+      - name: Run Tests
+        run: uv run --no-sync pytest -v -n auto --cov --cov-report=xml
+
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v6
+        with:
+          fail_ci_if_error: true
+          use_oidc: true
+          verbose: true

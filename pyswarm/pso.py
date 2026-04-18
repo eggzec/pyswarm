@@ -51,6 +51,7 @@ def pso(  # noqa: PLR0913, PLR0917, PLR0912, PLR0915, PLR0914
     debug: bool = False,  # noqa: FBT001, FBT002
     processes: int = 1,
     particle_output: bool = False,  # noqa: FBT001, FBT002
+    seed: int | None = None,
 ) -> (
     tuple[np.ndarray, float] | tuple[np.ndarray, float, np.ndarray, np.ndarray]
 ):
@@ -83,6 +84,9 @@ def pso(  # noqa: PLR0913, PLR0917, PLR0912, PLR0915, PLR0914
         functions (Default: empty dict)
     swarmsize : int
         The number of particles in the swarm (Default: 100)
+    seed : int, optional
+        Seed for the random number generator used by particles and velocity
+        updates. Use ``None`` for nondeterministic behavior (Default: None).
     omega : scalar
         Particle velocity scaling factor (Default: 0.5)
     phip : scalar
@@ -148,6 +152,8 @@ def pso(  # noqa: PLR0913, PLR0917, PLR0912, PLR0915, PLR0914
     vhigh = np.abs(ub - lb)
     vlow = -vhigh
 
+    rng = np.random.default_rng(seed)
+
     # Initialize objective function
     obj = partial(_obj_wrapper, func, args, kwargs)
 
@@ -175,7 +181,7 @@ def pso(  # noqa: PLR0913, PLR0917, PLR0912, PLR0915, PLR0914
     # Initialize the particle swarm ############################################
     swarm_size = swarmsize
     num_dims = len(lb)  # the number of dimensions each particle has
-    x = np.random.rand(swarm_size, num_dims)  # particle positions
+    x = rng.random((swarm_size, num_dims))  # particle positions
     v = np.zeros_like(x)  # particle velocities
     p = np.zeros_like(x)  # best particle positions
     fx = np.zeros(swarm_size)  # current particle function values
@@ -212,13 +218,13 @@ def pso(  # noqa: PLR0913, PLR0917, PLR0912, PLR0915, PLR0914
         g = x[0, :].copy()
 
     # Initialize the particle's velocity
-    v = vlow + np.random.rand(swarm_size, num_dims) * (vhigh - vlow)
+    v = rng.uniform(vlow, vhigh, size=(swarm_size, num_dims))
 
     # Iterate until termination criterion met ##################################
     it = 1
     while it <= maxiter:
-        rp = np.random.uniform(size=(swarm_size, num_dims))
-        rg = np.random.uniform(size=(swarm_size, num_dims))
+        rp = rng.uniform(size=(swarm_size, num_dims))
+        rg = rng.uniform(size=(swarm_size, num_dims))
 
         # Update the particles velocities
         v = omega * v + phip * rp * (p - x) + phig * rg * (g - x)

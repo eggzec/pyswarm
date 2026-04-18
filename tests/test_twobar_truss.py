@@ -55,6 +55,7 @@ def test_twobar_truss() -> None:
         args=args,
         maxiter=100,
         debug=True,
+        seed=0,
     )
     if not np.isclose(fopt, 11.94, atol=0.1):
         msg = f"Expected fopt close to 11.94, got {fopt}"

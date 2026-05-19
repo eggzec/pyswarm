@@ -56,6 +56,7 @@ def pso(  # noqa: PLR0913, PLR0917, PLR0912, PLR0915, PLR0914, PLR0911
     patience: int = 0,
     bounds: list[tuple[float, float]] | None = None,
     pool: object | None = None,
+    init: np.ndarray | None = None,
 ) -> (
     tuple[np.ndarray, float] | tuple[np.ndarray, float, np.ndarray, np.ndarray]
 ):
@@ -129,6 +130,10 @@ def pso(  # noqa: PLR0913, PLR0917, PLR0912, PLR0915, PLR0914, PLR0911
         design variable. Overrides ``lb`` and ``ub`` when provided. Example::
 
             bounds = [(-1, 1), (0, 5)]  # two variables
+    init : array of shape (swarmsize, len(lb)), optional
+        Custom initial particle positions. Each row is one particle. Values
+        are clipped to ``[lb, ub]`` if any are out of range. When omitted,
+        positions are sampled uniformly at random (Default: None).
     pool : object with a map() method, optional
         A custom parallel-evaluation pool (e.g. ``multiprocessing.Pool``,
         ``ipyparallel.Client[:].map``, ``dask.distributed.Client``).
@@ -227,7 +232,17 @@ def pso(  # noqa: PLR0913, PLR0917, PLR0912, PLR0915, PLR0914, PLR0911
         fg = np.inf  # best swarm position starting value
 
         # Initialize the particle's position
-        x = lb + x * (ub - lb)
+        if init is not None:
+            x = np.asarray(init, dtype=float)
+            if x.shape != (swarm_size, num_dims):
+                msg = (
+                    f"init must have shape ({swarm_size}, {num_dims}),"
+                    f" got {x.shape}"
+                )
+                raise ValueError(msg)
+            x = np.clip(x, lb, ub)
+        else:
+            x = lb + x * (ub - lb)
 
         # Calculate objective and constraints for each particle
         if mp_pool is not None:
@@ -332,9 +347,7 @@ def pso(  # noqa: PLR0913, PLR0917, PLR0912, PLR0915, PLR0914, PLR0911
             it += 1
 
         if debug:
-            print(
-                f"Stopping search: maximum iterations reached --> {maxiter}"
-            )
+            print(f"Stopping search: maximum iterations reached --> {maxiter}")
 
         if not is_feasible(g):
             print(

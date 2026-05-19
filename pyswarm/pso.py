@@ -33,7 +33,7 @@ def _cons_f_ieqcons_wrapper(
     return np.array(f_ieqcons(x, *args, **kwargs))
 
 
-def pso(  # noqa: PLR0913, PLR0917, PLR0912, PLR0915, PLR0914
+def pso(  # noqa: PLR0913, PLR0917, PLR0912, PLR0915, PLR0914, PLR0911
     func: Callable,
     lb: list | np.ndarray,
     ub: list | np.ndarray,
@@ -52,6 +52,7 @@ def pso(  # noqa: PLR0913, PLR0917, PLR0912, PLR0915, PLR0914
     processes: int = 1,
     particle_output: bool = False,  # noqa: FBT001, FBT002
     seed: int | None = None,
+    patience: int = 0,
 ) -> (
     tuple[np.ndarray, float] | tuple[np.ndarray, float, np.ndarray, np.ndarray]
 ):
@@ -112,6 +113,12 @@ def pso(  # noqa: PLR0913, PLR0917, PLR0912, PLR0915, PLR0914
     particle_output : boolean
         Whether to include the best per-particle position and the objective
         values at those.
+    patience : int
+        Maximum number of consecutive iterations without improvement before
+        terminating early. Set to 0 to disable plateau detection (Default: 0).
+        Useful for problems where the swarm reaches an exact optimum and no
+        further improvement is possible (e.g. f(x)=0), preventing needless
+        iterations until ``maxiter``.
 
     Returns
     =======
@@ -222,6 +229,7 @@ def pso(  # noqa: PLR0913, PLR0917, PLR0912, PLR0915, PLR0914
 
     # Iterate until termination criterion met ##################################
     it = 1
+    stagnation = 0  # consecutive iterations without improvement
     while it <= maxiter:
         rp = rng.uniform(size=(swarm_size, num_dims))
         rg = rng.uniform(size=(swarm_size, num_dims))
@@ -252,6 +260,7 @@ def pso(  # noqa: PLR0913, PLR0917, PLR0912, PLR0915, PLR0914
         # Compare swarm's best position with global best position
         i_min = np.argmin(fp)
         if fp[i_min] < fg:
+            stagnation = 0
             if debug:
                 print(
                     f"New best for swarm at iteration {it}: {p[i_min, :]} {fp[i_min]}"  # noqa: E501
@@ -261,30 +270,40 @@ def pso(  # noqa: PLR0913, PLR0917, PLR0912, PLR0915, PLR0914
             stepsize = np.sqrt(np.sum((g - p_min) ** 2))
 
             if np.abs(fg - fp[i_min]) <= minfunc:
-                print(
-                    f"Stopping search: Swarm best objective change less than {minfunc}"  # noqa: E501
-                )
+                if debug:
+                    print(
+                        f"Stopping search: Swarm best objective change less than {minfunc}"  # noqa: E501
+                    )
                 if particle_output:
                     return p_min, fp[i_min], p, fp
-                else:
-                    return p_min, fp[i_min]
-            elif stepsize <= minstep:
-                print(
-                    f"Stopping search: Swarm best position change less than {minstep}"  # noqa: E501
-                )
+                return p_min, fp[i_min]
+            if stepsize <= minstep:
+                if debug:
+                    print(
+                        f"Stopping search: Swarm best position change less than {minstep}"  # noqa: E501
+                    )
                 if particle_output:
                     return p_min, fp[i_min], p, fp
-                else:
-                    return p_min, fp[i_min]
-            else:
-                g = p_min.copy()
-                fg = fp[i_min]
+                return p_min, fp[i_min]
+            g = p_min.copy()
+            fg = fp[i_min]
+        else:
+            stagnation += 1
+            if patience > 0 and stagnation >= patience:
+                if debug:
+                    print(
+                        f"Stopping search: no improvement for {patience} consecutive iterations"  # noqa: E501
+                    )
+                if particle_output:
+                    return g, fg, p, fp
+                return g, fg
 
         if debug:
             print(f"Best after iteration {it}: {g} {fg}")
         it += 1
 
-    print(f"Stopping search: maximum iterations reached --> {maxiter}")
+    if debug:
+        print(f"Stopping search: maximum iterations reached --> {maxiter}")
 
     if not is_feasible(g):
         print(

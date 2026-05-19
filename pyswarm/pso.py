@@ -35,8 +35,8 @@ def _cons_f_ieqcons_wrapper(
 
 def pso(  # noqa: PLR0913, PLR0917, PLR0912, PLR0915, PLR0914, PLR0911
     func: Callable,
-    lb: list | np.ndarray,
-    ub: list | np.ndarray,
+    lb: list | np.ndarray | None = None,
+    ub: list | np.ndarray | None = None,
     ieqcons: list | None = None,
     f_ieqcons: Callable | None = None,
     args: tuple = (),
@@ -53,6 +53,7 @@ def pso(  # noqa: PLR0913, PLR0917, PLR0912, PLR0915, PLR0914, PLR0911
     particle_output: bool = False,  # noqa: FBT001, FBT002
     seed: int | None = None,
     patience: int = 0,
+    bounds: list[tuple[float, float]] | None = None,
 ) -> (
     tuple[np.ndarray, float] | tuple[np.ndarray, float, np.ndarray, np.ndarray]
 ):
@@ -63,10 +64,12 @@ def pso(  # noqa: PLR0913, PLR0917, PLR0912, PLR0915, PLR0914, PLR0911
     ==========
     func : function
         The function to be minimized
-    lb : array
-        The lower bounds of the design variable(s)
-    ub : array
-        The upper bounds of the design variable(s)
+    lb : array, optional
+        The lower bounds of the design variable(s). Required if ``bounds``
+        is not provided.
+    ub : array, optional
+        The upper bounds of the design variable(s). Required if ``bounds``
+        is not provided.
 
     Optional
     ========
@@ -119,6 +122,11 @@ def pso(  # noqa: PLR0913, PLR0917, PLR0912, PLR0915, PLR0914, PLR0911
         Useful for problems where the swarm reaches an exact optimum and no
         further improvement is possible (e.g. f(x)=0), preventing needless
         iterations until ``maxiter``.
+    bounds : list of (lo, hi) pairs, optional
+        SciPy-style bounds: a sequence of ``(lower, upper)`` tuples, one per
+        design variable. Overrides ``lb`` and ``ub`` when provided. Example::
+
+            bounds = [(-1, 1), (0, 5)]  # two variables
 
     Returns
     =======
@@ -144,6 +152,12 @@ def pso(  # noqa: PLR0913, PLR0917, PLR0912, PLR0915, PLR0914, PLR0911
         kwargs = {}
     if ieqcons is None:
         ieqcons = []
+    if bounds is not None:
+        lb = [b[0] for b in bounds]
+        ub = [b[1] for b in bounds]
+    if lb is None or ub is None:
+        msg = "Either 'bounds' or both 'lb' and 'ub' must be provided"
+        raise ValueError(msg)
     if len(lb) != len(ub):
         msg = "Lower- and upper-bounds must be the same length"
         raise ValueError(msg)

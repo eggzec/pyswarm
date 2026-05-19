@@ -57,6 +57,7 @@ def pso(  # noqa: PLR0913, PLR0917, PLR0912, PLR0915, PLR0914, PLR0911
     bounds: list[tuple[float, float]] | None = None,
     pool: object | None = None,
     init: np.ndarray | None = None,
+    intvar: list[int] | None = None,
 ) -> (
     tuple[np.ndarray, float] | tuple[np.ndarray, float, np.ndarray, np.ndarray]
 ):
@@ -130,6 +131,11 @@ def pso(  # noqa: PLR0913, PLR0917, PLR0912, PLR0915, PLR0914, PLR0911
         design variable. Overrides ``lb`` and ``ub`` when provided. Example::
 
             bounds = [(-1, 1), (0, 5)]  # two variables
+    intvar : list of int, optional
+        Indices of design variables that must take integer values. After each
+        position update the selected dimensions are rounded to the nearest
+        integer and clipped to ``[lb, ub]``. Bounds for integer variables
+        should themselves be integers (Default: None).
     init : array of shape (swarmsize, len(lb)), optional
         Custom initial particle positions. Each row is one particle. Values
         are clipped to ``[lb, ub]`` if any are out of range. When omitted,
@@ -243,6 +249,8 @@ def pso(  # noqa: PLR0913, PLR0917, PLR0912, PLR0915, PLR0914, PLR0911
             x = np.clip(x, lb, ub)
         else:
             x = lb + x * (ub - lb)
+        if intvar is not None:
+            x[:, intvar] = np.round(x[:, intvar]).clip(lb[intvar], ub[intvar])
 
         # Calculate objective and constraints for each particle
         if mp_pool is not None:
@@ -286,6 +294,10 @@ def pso(  # noqa: PLR0913, PLR0917, PLR0912, PLR0915, PLR0914, PLR0911
             maskl = x < lb
             masku = x > ub
             x = x * (~np.logical_or(maskl, masku)) + lb * maskl + ub * masku
+            if intvar is not None:
+                x[:, intvar] = np.round(x[:, intvar]).clip(
+                    lb[intvar], ub[intvar]
+                )
 
             # Update objectives and constraints
             if mp_pool is not None:

@@ -3,6 +3,7 @@ from __future__ import annotations
 import multiprocessing
 from collections.abc import Callable
 from functools import partial
+from typing import Any
 
 import numpy as np
 
@@ -54,6 +55,7 @@ def pso(  # noqa: PLR0913, PLR0917, PLR0912, PLR0915, PLR0914, PLR0911
     seed: int | None = None,
     patience: int = 0,
     bounds: list[tuple[float, float]] | None = None,
+    pool: object | None = None,
 ) -> (
     tuple[np.ndarray, float] | tuple[np.ndarray, float, np.ndarray, np.ndarray]
 ):
@@ -127,6 +129,13 @@ def pso(  # noqa: PLR0913, PLR0917, PLR0912, PLR0915, PLR0914, PLR0911
         design variable. Overrides ``lb`` and ``ub`` when provided. Example::
 
             bounds = [(-1, 1), (0, 5)]  # two variables
+    pool : object with a map() method, optional
+        A custom parallel-evaluation pool (e.g. ``multiprocessing.Pool``,
+        ``ipyparallel.Client[:].map``, ``dask.distributed.Client``).
+        When provided, the ``processes`` argument is ignored and the pool's
+        lifecycle is managed entirely by the caller. When omitted and
+        ``processes > 1``, an internal ``multiprocessing.Pool`` is created and
+        closed automatically (Default: None).
 
     Returns
     =======
@@ -194,71 +203,34 @@ def pso(  # noqa: PLR0913, PLR0917, PLR0912, PLR0915, PLR0914, PLR0911
         cons = partial(_cons_f_ieqcons_wrapper, f_ieqcons, args, kwargs)
     is_feasible = partial(_is_feasible_wrapper, cons)
 
-    # Initialize the multiprocessing module if necessary
-    mp_pool = None
-    if processes > 1:
+    # Set up the evaluation pool.
+    owns_pool = False
+    if pool is not None:
+        mp_pool: Any = pool
+    elif processes > 1:
         mp_pool = multiprocessing.Pool(processes)
-
-    # Initialize the particle swarm ############################################
-    swarm_size = swarmsize
-    num_dims = len(lb)  # the number of dimensions each particle has
-    x = rng.random((swarm_size, num_dims))  # particle positions
-    v = np.zeros_like(x)  # particle velocities
-    p = np.zeros_like(x)  # best particle positions
-    fx = np.zeros(swarm_size)  # current particle function values
-    fs = np.zeros(swarm_size, dtype=bool)  # feasibility of each particle
-    fp = np.ones(swarm_size) * np.inf  # best particle function values
-    g = []  # best swarm position
-    fg = np.inf  # best swarm position starting value
-
-    # Initialize the particle's position
-    x = lb + x * (ub - lb)
-
-    # Calculate objective and constraints for each particle
-    if processes > 1:
-        fx = np.array(mp_pool.map(obj, x))
-        fs = np.array(mp_pool.map(is_feasible, x))
+        owns_pool = True
     else:
-        for i in range(swarm_size):
-            fx[i] = obj(x[i, :])
-            fs[i] = is_feasible(x[i, :])
+        mp_pool = None
 
-    # Store particle's best position (if constraints are satisfied)
-    i_update = np.logical_and((fx < fp), fs)
-    p[i_update, :] = x[i_update, :].copy()
-    fp[i_update] = fx[i_update]
+    try:
+        # Initialize the particle swarm ########################################
+        swarm_size = swarmsize
+        num_dims = len(lb)  # the number of dimensions each particle has
+        x = rng.random((swarm_size, num_dims))  # particle positions
+        v = np.zeros_like(x)  # particle velocities
+        p = np.zeros_like(x)  # best particle positions
+        fx = np.zeros(swarm_size)  # current particle function values
+        fs = np.zeros(swarm_size, dtype=bool)  # feasibility of each particle
+        fp = np.ones(swarm_size) * np.inf  # best particle function values
+        g = []  # best swarm position
+        fg = np.inf  # best swarm position starting value
 
-    # Update swarm's best position
-    i_min = np.argmin(fp)
-    if fp[i_min] < fg:
-        fg = fp[i_min]
-        g = p[i_min, :].copy()
-    else:
-        # At the start, there may not be any feasible starting point, so just
-        # give it a temporary "best" point since it's likely to change
-        g = x[0, :].copy()
+        # Initialize the particle's position
+        x = lb + x * (ub - lb)
 
-    # Initialize the particle's velocity
-    v = rng.uniform(vlow, vhigh, size=(swarm_size, num_dims))
-
-    # Iterate until termination criterion met ##################################
-    it = 1
-    stagnation = 0  # consecutive iterations without improvement
-    while it <= maxiter:
-        rp = rng.uniform(size=(swarm_size, num_dims))
-        rg = rng.uniform(size=(swarm_size, num_dims))
-
-        # Update the particles velocities
-        v = omega * v + phip * rp * (p - x) + phig * rg * (g - x)
-        # Update the particles' positions
-        x += v
-        # Correct for bound violations
-        maskl = x < lb
-        masku = x > ub
-        x = x * (~np.logical_or(maskl, masku)) + lb * maskl + ub * masku
-
-        # Update objectives and constraints
-        if processes > 1:
+        # Calculate objective and constraints for each particle
+        if mp_pool is not None:
             fx = np.array(mp_pool.map(obj, x))
             fs = np.array(mp_pool.map(is_feasible, x))
         else:
@@ -271,59 +243,107 @@ def pso(  # noqa: PLR0913, PLR0917, PLR0912, PLR0915, PLR0914, PLR0911
         p[i_update, :] = x[i_update, :].copy()
         fp[i_update] = fx[i_update]
 
-        # Compare swarm's best position with global best position
+        # Update swarm's best position
         i_min = np.argmin(fp)
         if fp[i_min] < fg:
-            stagnation = 0
-            if debug:
-                print(
-                    f"New best for swarm at iteration {it}: {p[i_min, :]} {fp[i_min]}"  # noqa: E501
-                )
-
-            p_min = p[i_min, :].copy()
-            stepsize = np.sqrt(np.sum((g - p_min) ** 2))
-
-            if np.abs(fg - fp[i_min]) <= minfunc:
-                if debug:
-                    print(
-                        f"Stopping search: Swarm best objective change less than {minfunc}"  # noqa: E501
-                    )
-                if particle_output:
-                    return p_min, fp[i_min], p, fp
-                return p_min, fp[i_min]
-            if stepsize <= minstep:
-                if debug:
-                    print(
-                        f"Stopping search: Swarm best position change less than {minstep}"  # noqa: E501
-                    )
-                if particle_output:
-                    return p_min, fp[i_min], p, fp
-                return p_min, fp[i_min]
-            g = p_min.copy()
             fg = fp[i_min]
+            g = p[i_min, :].copy()
         else:
-            stagnation += 1
-            if patience > 0 and stagnation >= patience:
+            # At the start, there may not be any feasible starting point, so
+            # give it a temporary "best" point since it's likely to change
+            g = x[0, :].copy()
+
+        # Initialize the particle's velocity
+        v = rng.uniform(vlow, vhigh, size=(swarm_size, num_dims))
+
+        # Iterate until termination criterion met ##############################
+        it = 1
+        stagnation = 0  # consecutive iterations without improvement
+        while it <= maxiter:
+            rp = rng.uniform(size=(swarm_size, num_dims))
+            rg = rng.uniform(size=(swarm_size, num_dims))
+
+            # Update the particles velocities
+            v = omega * v + phip * rp * (p - x) + phig * rg * (g - x)
+            # Update the particles' positions
+            x += v
+            # Correct for bound violations
+            maskl = x < lb
+            masku = x > ub
+            x = x * (~np.logical_or(maskl, masku)) + lb * maskl + ub * masku
+
+            # Update objectives and constraints
+            if mp_pool is not None:
+                fx = np.array(mp_pool.map(obj, x))
+                fs = np.array(mp_pool.map(is_feasible, x))
+            else:
+                for i in range(swarm_size):
+                    fx[i] = obj(x[i, :])
+                    fs[i] = is_feasible(x[i, :])
+
+            # Store particle's best position (if constraints are satisfied)
+            i_update = np.logical_and((fx < fp), fs)
+            p[i_update, :] = x[i_update, :].copy()
+            fp[i_update] = fx[i_update]
+
+            # Compare swarm's best position with global best position
+            i_min = np.argmin(fp)
+            if fp[i_min] < fg:
+                stagnation = 0
                 if debug:
                     print(
-                        f"Stopping search: no improvement for {patience} consecutive iterations"  # noqa: E501
+                        f"New best for swarm at iteration {it}: {p[i_min, :]} {fp[i_min]}"  # noqa: E501
                     )
-                if particle_output:
-                    return g, fg, p, fp
-                return g, fg
+
+                p_min = p[i_min, :].copy()
+                stepsize = np.sqrt(np.sum((g - p_min) ** 2))
+
+                if np.abs(fg - fp[i_min]) <= minfunc:
+                    if debug:
+                        print(
+                            f"Stopping search: Swarm best objective change less than {minfunc}"  # noqa: E501
+                        )
+                    if particle_output:
+                        return p_min, fp[i_min], p, fp
+                    return p_min, fp[i_min]
+                if stepsize <= minstep:
+                    if debug:
+                        print(
+                            f"Stopping search: Swarm best position change less than {minstep}"  # noqa: E501
+                        )
+                    if particle_output:
+                        return p_min, fp[i_min], p, fp
+                    return p_min, fp[i_min]
+                g = p_min.copy()
+                fg = fp[i_min]
+            else:
+                stagnation += 1
+                if patience > 0 and stagnation >= patience:
+                    if debug:
+                        print(
+                            f"Stopping search: no improvement for {patience} consecutive iterations"  # noqa: E501
+                        )
+                    if particle_output:
+                        return g, fg, p, fp
+                    return g, fg
+
+            if debug:
+                print(f"Best after iteration {it}: {g} {fg}")
+            it += 1
 
         if debug:
-            print(f"Best after iteration {it}: {g} {fg}")
-        it += 1
+            print(
+                f"Stopping search: maximum iterations reached --> {maxiter}"
+            )
 
-    if debug:
-        print(f"Stopping search: maximum iterations reached --> {maxiter}")
-
-    if not is_feasible(g):
-        print(
-            "However, the optimization couldn't find a feasible design. Sorry"
-        )
-    if particle_output:
-        return g, fg, p, fp
-    else:
+        if not is_feasible(g):
+            print(
+                "However, the optimization couldn't find a feasible design. Sorry"  # noqa: E501
+            )
+        if particle_output:
+            return g, fg, p, fp
         return g, fg
+    finally:
+        if owns_pool and mp_pool is not None:
+            mp_pool.terminate()
+            mp_pool.join()

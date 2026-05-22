@@ -1,6 +1,6 @@
 import numpy as np
 
-from pyswarm.pso import pso
+from pyswarm import pso
 
 
 def test_minfunc_plateau_terminates_early() -> None:
@@ -12,7 +12,7 @@ def test_minfunc_plateau_terminates_early() -> None:
         return 0.0
 
     result = pso(flat_func, [-1, -1], [1, 1], maxiter=500, seed=0, patience=1)
-    fopt = result[1]
+    fopt = result.fun
     if not np.isclose(fopt, 0.0):
         msg = f"Expected fopt == 0.0, got {fopt}"
         raise AssertionError(msg)

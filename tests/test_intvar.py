@@ -1,6 +1,6 @@
 import numpy as np
 
-from pyswarm.pso import pso
+from pyswarm import pso
 
 
 def integer_func(x: np.ndarray) -> float:
@@ -11,9 +11,10 @@ def integer_func(x: np.ndarray) -> float:
 def test_intvar_solutions_are_integers() -> None:
     lb = [0, 0]
     ub = [5, 5]
-    xopt, fopt = pso(
+    result = pso(
         integer_func, lb, ub, intvar=[0, 1], swarmsize=30, seed=0, maxiter=200
     )
+    xopt, fopt = result.x, result.fun
     if not np.allclose(xopt, np.round(xopt)):
         msg = f"Expected integer solution, got {xopt}"
         raise AssertionError(msg)

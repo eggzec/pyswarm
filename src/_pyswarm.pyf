@@ -1,0 +1,80 @@
+!
+! _pyswarm.pyf  --  f2py interface for the single PSO Fortran 77 subroutine.
+!
+! Python call signature (all dimension args are hidden):
+!
+!   x, v, p, fp, g, fg, stepsize, funcdiff, improved = \
+!       pso(x, v, p, fp, g, fg, fx, fs, rp, rg, lb, ub, ivar,
+!           omega, phip, phig, minstep, minfunc)
+!
+! Array shapes:
+!   x, v, p, rp, rg  : (swarmsize, ndim)   -- Fortran-contiguous (F-order)
+!   fp, fx           : (swarmsize,)
+!   fs               : (swarmsize,)  integer
+!   g, lb, ub        : (ndim,)
+!   ivar             : (nivar,)      integer  -- 1-based column indices
+!
+! Scalar outputs: fg (float), stepsize (float), funcdiff (float), improved (int)
+!
+
+python module _pyswarm
+  interface
+
+    ! ------------------------------------------------------------------
+    ! PSO: complete PSO iteration step in Fortran 77.
+    !
+    ! Performs (in order):
+    !   1. Personal-best update      (using FX, FS)
+    !   2. Global-best update        (updates G, FG; sets STEPSIZE, FUNCDIFF, IMPROVED)
+    !   3. Velocity update           (PSO inertia formula with RP, RG)
+    !   4. Position update + clamp   (to [LB, UB])
+    !   5. Integer rounding          (for variables listed in IVAR; skipped if NIVAR=0)
+    ! ------------------------------------------------------------------
+    subroutine pso(x, v, p, fp, g, fg, fx, fs,
+                   rp, rg, lb, ub, ivar,
+                   omega, phip, phig, minstep, minfunc,
+                   nswarm, ndim, nivar,
+                   stepsize, funcdiff, improved)
+
+      ! --- state arrays (in/out) ---
+      double precision, dimension(nswarm,ndim), intent(in,out) :: x
+      double precision, dimension(nswarm,ndim), intent(in,out) :: v
+      double precision, dimension(nswarm,ndim), intent(in,out) :: p
+      double precision, dimension(nswarm),      intent(in,out) :: fp
+      double precision, dimension(ndim),        intent(in,out) :: g
+      double precision,                         intent(in,out) :: fg
+
+      ! --- current evaluation (in) ---
+      double precision, dimension(nswarm), intent(in) :: fx
+      integer,          dimension(nswarm), intent(in) :: fs
+
+      ! --- random factors for this step (in) ---
+      double precision, dimension(nswarm,ndim), intent(in) :: rp
+      double precision, dimension(nswarm,ndim), intent(in) :: rg
+
+      ! --- bounds and integer-variable indices (in) ---
+      double precision, dimension(ndim),  intent(in) :: lb
+      double precision, dimension(ndim),  intent(in) :: ub
+      integer,          dimension(nivar), intent(in) :: ivar
+
+      ! --- PSO parameters (in) ---
+      double precision, intent(in) :: omega
+      double precision, intent(in) :: phip
+      double precision, intent(in) :: phig
+      double precision, intent(in) :: minstep
+      double precision, intent(in) :: minfunc
+
+      ! --- hidden dimension arguments (inferred from array shapes) ---
+      integer, intent(hide), depend(x)    :: nswarm = shape(x, 0)
+      integer, intent(hide), depend(x)    :: ndim   = shape(x, 1)
+      integer, intent(hide), depend(ivar) :: nivar  = len(ivar)
+
+      ! --- convergence metrics (out) ---
+      double precision, intent(out) :: stepsize
+      double precision, intent(out) :: funcdiff
+      integer,          intent(out) :: improved
+
+    end subroutine pso
+
+  end interface
+end python module _pyswarm

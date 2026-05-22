@@ -1,6 +1,11 @@
 [build-system]
-requires = ["hatchling>=1.29.0", "hatch-vcs"]
-build-backend = "hatchling.build"
+requires = [
+    "meson-python",
+    "numpy>=2.0.0",
+    "packaging",
+    "setuptools_scm>=8"
+]
+build-backend = "mesonpy"
 
 [project]
 name = "pyswarm"
@@ -51,7 +56,6 @@ requires-python = ">=3.10"
 homepage = "https://eggzec.github.io/pyswarm/"
 documentation = "https://eggzec.github.io/pyswarm/"
 source = "https://github.com/eggzec/pyswarm"
-# TODO: provide changelog URL from docs
 releasenotes = "https://github.com/eggzec/pyswarm/releases/latest"
 issues = "https://github.com/eggzec/pyswarm/issues"
 
@@ -62,20 +66,16 @@ dev = [
   {include-group = "test"}
 ]
 docs = [
-    "zensical>=0.0.23",
-    "mkdocstrings[python]>=1.0.4"
+    "zensical>=0.0.42"
 ]
 lint = [
     "ruff==0.15.*",
 ]
 test = [
-    "pytest>=8.3.5",
-    "pytest-cov>=7.0.0",
-    "pytest-xdist>=3.6.1",
+    "pytest>=9.0.3",
+    "pytest-cov>=7.1.0",
+    "pytest-xdist>=3.8.0",
 ]
-
-[tool.hatch.version]
-source = "vcs"
 
 [tool.ruff]
 line-length = 80
@@ -125,4 +125,12 @@ docstring-code-format = true
 skip-magic-trailing-comma = true
 
 [tool.pytest.ini_options]
-addopts = "--doctest-modules"
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+
+[tool.setuptools_scm]
+version_scheme = "release-branch-semver"
+local_scheme = "no-local-version"
+
+[tool.cibuildwheel]
+enable = ["cpython-prerelease"]

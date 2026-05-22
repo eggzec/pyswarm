@@ -10,18 +10,44 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    name: Build wheels (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+
+    strategy:
+      fail-fast: true
+      matrix:
+        os:
+          - ubuntu-latest
+          - windows-latest
+          - macos-latest
 
     steps:
-      - uses: actions/checkout@v6
+      - name: Checkout source
+        uses: actions/checkout@v6
         with:
           fetch-depth: 0
 
-      - name: Setup uv
-        uses: astral-sh/setup-uv@v7
+      - name: Setup Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
 
-      - name: Build distribution
-        run: uv build -v --clear .
+      - name: Add gfortran to PATH (macOS)
+        if: runner.os == 'macOS'
+        run: echo "$(brew --prefix gcc)/bin" >> "$GITHUB_PATH"
+
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install numpy cibuildwheel
+
+      - name: Build wheels
+        run: python -m cibuildwheel --output-dir wheels
+        env:
+          CIBW_ARCHS_LINUX: x86_64
+          CIBW_ARCHS_MACOS: arm64
+          CIBW_ARCHS_WINDOWS: AMD64
+          CIBW_ENVIRONMENT_MACOS: "PATH=/opt/homebrew/bin:$PATH MACOSX_DEPLOYMENT_TARGET=15.0"
 
       - name: Set Artifact Name
         id: artifact-name
@@ -29,11 +55,11 @@ jobs:
           echo "artifact_name=${{ github.run_id }}[${{ github.run_attempt }}]--build-artifacts" \
           | tee -a $GITHUB_OUTPUT
 
-      - name: Upload Build Artifacts
+      - name: Upload wheels
         uses: actions/upload-artifact@v7
         with:
-          name: ${{ steps.artifact-name.outputs.artifact_name }}
-          path: dist
+          name: ${{ steps.artifact-name.outputs.artifact_name }}-${{ matrix.os }}
+          path: wheels/*.whl
           if-no-files-found: error
 
     outputs:

@@ -1,7 +1,7 @@
 import numpy as np
 from numpy.typing import NDArray
 
-from pyswarm.pso import pso
+from pyswarm import pso
 
 
 def banana_func(x: NDArray[np.floating]) -> np.floating:
@@ -15,9 +15,8 @@ def test_init_positions_respected() -> None:
     lb, ub = np.array([-3.0, -1.0]), np.array([2.0, 6.0])
     swarmsize = 20
     init = lb + rng.random((swarmsize, 2)) * (ub - lb)
-    xopt, fopt = pso(
-        banana_func, lb, ub, swarmsize=swarmsize, init=init, seed=0
-    )
+    result = pso(banana_func, lb, ub, swarmsize=swarmsize, init=init, seed=0)
+    xopt, fopt = result.x, result.fun
     if not np.allclose(xopt, [1.0, 1.0], atol=0.1):
         msg = f"Expected xopt near [1, 1], got {xopt}"
         raise AssertionError(msg)

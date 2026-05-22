@@ -1,7 +1,7 @@
 import numpy as np
 from numpy.typing import NDArray
 
-from pyswarm.pso import pso
+from pyswarm import pso
 
 
 def banana_func(x: NDArray[np.floating]) -> np.floating:
@@ -13,7 +13,8 @@ def banana_func(x: NDArray[np.floating]) -> np.floating:
 def test_banana_no_constraints() -> None:
     lb = [-3, -1]
     ub = [2, 6]
-    xopt, fopt = pso(banana_func, lb, ub, debug=True)
+    result = pso(banana_func, lb, ub, debug=True)
+    xopt, fopt = result.x, result.fun
     if not np.allclose(xopt, [1.0, 1.0], atol=0.001):
         msg = f"Expected xopt close to [1.0, 1.0], got {xopt}"
         raise AssertionError(msg)

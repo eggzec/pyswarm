@@ -18,7 +18,6 @@
 ## Quick example
 
 ```python
-import numpy as np
 from pyswarm import pso
 
 
@@ -30,11 +29,18 @@ def objective(x):
 lb = [-3, -1]
 ub = [2, 6]
 
-xopt, fopt = pso(objective, lb, ub)
+result = pso(objective, lb, ub)
 
-print("Optimal solution:", xopt)
-print("Function value:", fopt)
+print("Optimal solution:", result.x)  # → [1.0, 1.0]
+print("Function value:", result.fun)  # → 4.0
+print("Converged:", result.success)
+print("Reason:", result.message)
+print("Iterations:", result.nit)
+print("Evaluations:", result.nfev)
 ```
+
+`pso` returns an `OptimizeResult` — a `dict` subclass with attribute
+access, compatible with `scipy.optimize.OptimizeResult`.
 
 ## Installation
 
@@ -42,7 +48,7 @@ print("Function value:", fopt)
 pip install pyswarm
 ```
 
-Requires Python 3.10+. No external runtime dependencies. See the
+Requires Python 3.10+ and NumPy. See the
 [full installation guide](https://eggzec.github.io/pyswarm/installation/) for
 uv, poetry, and source builds.
 

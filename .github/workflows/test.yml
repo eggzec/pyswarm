@@ -1,0 +1,83 @@
+name: Test
+
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
+
+  schedule:
+    - cron: "0 0 * * 0"  # Runs every Sunday at midnight UTC
+
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  fetch-python-versions:
+    runs-on: ubuntu-latest
+    outputs:
+      supported_versions: ${{ steps.fetch-versions.outputs.supported_versions }}
+      bound_versions: ${{ steps.fetch-versions.outputs.bound_versions }}
+    steps:
+      - name: Fetch Supported Python
+        id: fetch-versions
+        run: |
+          versions=$(curl -fsSL https://endoflife.date/api/v1/products/python/ \
+                     | jq '[ .result.releases[] | select(.isEol == false) | .label ]')
+
+          echo "supported_versions=$(echo $versions | jq -c '.')"        >> $GITHUB_OUTPUT
+          echo "bound_versions=$(echo $versions | jq -c '[.[0],.[-1]]')" >> $GITHUB_OUTPUT
+
+  build-and-test:
+    name: Build and Test
+    needs: fetch-python-versions
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        python-version: ${{ fromJson(needs.fetch-python-versions.outputs.supported_versions) }}
+
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Add gfortran to PATH (macOS)
+        if: runner.os == 'macOS'
+        run: echo "$(brew --prefix gcc)/bin" >> "$GITHUB_PATH"
+
+      - name: Setup uv
+        uses: astral-sh/setup-uv@v7
+
+      - name: Install project
+        run: uv run bin/build.py install
+
+      - name: Run Pytest
+        run: uv run --no-sync pytest -v -n auto --cov --cov-report=xml
+
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v6
+        with:
+          fail_ci_if_error: true
+          use_oidc: true
+          verbose: true
+
+      - name: Upload artifacts
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: build-${{ matrix.os }}-py${{ matrix.python-version }}
+          path: |
+            build/
+            dist/
+            .mesonpy/
+            build.log
+          retention-days: 5

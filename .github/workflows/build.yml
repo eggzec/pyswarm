@@ -1,12 +1,22 @@
-name: Build Distribution
+name: Build
 
 on:
-  workflow_call:
-    outputs:
-      artifact_name:
-        value: ${{ jobs.build.outputs.artifact_name }}
-      run_id:
-        value: ${{ github.run_id }}
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
+
+  schedule:
+    - cron: "0 0 * * 0"  # Runs every Sunday at midnight UTC
+
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
 
 jobs:
   build:
@@ -49,18 +59,8 @@ jobs:
           CIBW_ARCHS_WINDOWS: AMD64
           CIBW_ENVIRONMENT_MACOS: "PATH=/opt/homebrew/bin:$PATH MACOSX_DEPLOYMENT_TARGET=15.0"
 
-      - name: Set Artifact Name
-        id: artifact-name
-        run: |
-          echo "artifact_name=${{ github.run_id }}[${{ github.run_attempt }}]--build-artifacts" \
-          | tee -a $GITHUB_OUTPUT
-
       - name: Upload wheels
         uses: actions/upload-artifact@v7
         with:
-          name: ${{ steps.artifact-name.outputs.artifact_name }}-${{ matrix.os }}
+          name: wheels-${{ matrix.os }}
           path: wheels/*.whl
-          if-no-files-found: error
-
-    outputs:
-      artifact_name: ${{ steps.artifact-name.outputs.artifact_name }}

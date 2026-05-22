@@ -30,7 +30,6 @@ classifiers = [
     "Development Status :: 5 - Production/Stable",
     "Intended Audience :: Science/Research",
     "Intended Audience :: Developers",
-    "License :: OSI Approved :: BSD License",
     "Programming Language :: Python",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.10",
@@ -76,6 +75,12 @@ test = [
     "pytest-cov>=7.1.0",
     "pytest-xdist>=3.8.0",
 ]
+
+[tool.hatch.version]
+source = "vcs"
+
+[tool.hatch.build.targets.wheel]
+include = [ "pyswarm" ]
 
 [tool.ruff]
 line-length = 80
@@ -125,6 +130,7 @@ docstring-code-format = true
 skip-magic-trailing-comma = true
 
 [tool.pytest.ini_options]
+addopts = "--doctest-modules"
 testpaths = ["tests"]
 python_files = ["test_*.py"]
 

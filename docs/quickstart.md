@@ -1,7 +1,10 @@
 # Quickstart
 
-The examples below cover unconstrained optimization, constrained optimization, and a small
-engineering design problem.
+`pso()` returns an `OptimizeResult` — a dict-like object with attribute
+access compatible with `scipy.optimize.OptimizeResult`.
+
+The examples below cover unconstrained optimization, constrained
+optimization, and a small engineering design problem.
 
 ## Example 1: banana function without constraints
 
@@ -20,15 +23,27 @@ def banana_func(x):
 lb = [-3, -1]
 ub = [2, 6]
 
-xopt, fopt = pso(banana_func, lb, ub)
-print(f"xopt: {xopt}")
-print(f"fopt: {fopt}")
+result = pso(banana_func, lb, ub)
+
+print(result.x)  # best position   → [1.0, 1.0]
+print(result.fun)  # objective value → 4.0
+print(result.success)  # feasible?       → True
+print(result.message)  # why it stopped
+print(result.nit)  # iterations used
+print(result.nfev)  # function evaluations
 ```
 
 Expected result:
 
-- `xopt = [1.0, 1.0]`
-- `fopt = 4.0`
+- `result.x` ≈ `[1.0, 1.0]`
+- `result.fun` ≈ `4.0`
+
+`OptimizeResult` also supports dict-style access:
+
+```python
+print(result["x"])
+print(result["fun"])
+```
 
 ## Example 2: banana function with a constraint
 
@@ -54,17 +69,18 @@ def banana_constraint(x):
 lb = [-3, -1]
 ub = [2, 6]
 
-xopt, fopt = pso(banana_func, lb, ub, f_ieqcons=banana_constraint)
-print(f"xopt: {xopt}")
-print(f"fopt: {fopt}")
-print(f"constraint: {banana_constraint(xopt)}")
+result = pso(banana_func, lb, ub, f_ieqcons=banana_constraint)
+
+print(result.x)  # optimal position
+print(result.fun)  # objective value
+print(banana_constraint(result.x))  # constraint values (all >= 0)
 ```
 
 Expected result:
 
-- `xopt` close to `[0.5, 0.75]`
-- `fopt` close to `4.5`
-- every value returned by `banana_constraint(xopt)` to be non-negative
+- `result.x` close to `[0.5, 0.75]`
+- `result.fun` close to `4.5`
+- every value returned by `banana_constraint(result.x)` non-negative
 
 ## Example 3: two-bar truss optimization
 
@@ -139,17 +155,21 @@ args = (b, rho, e, p)
 lb = [10, 1, 0.01]
 ub = [30, 3, 0.25]
 
-xopt, fopt = pso(
+result = pso(
     weight, lb, ub, f_ieqcons=truss_constraints, args=args, maxiter=100
 )
-print(f"xopt: {xopt}")
-print(f"weight: {fopt}")
-print(f"constraints: {truss_constraints(xopt, *args)}")
+
+print(f"x:           {result.x}")
+print(f"weight:      {result.fun:.4f}")
+print(f"constraints: {truss_constraints(result.x, *args)}")
+print(f"iterations:  {result.nit}")
+print(f"evals:       {result.nfev}")
 ```
 
 Expected result:
 
-- `fopt` close to `11.94`
-- every value returned by `truss_constraints(xopt, *args)` is non-negative
+- `result.fun` close to `11.94`
+- every value returned by `truss_constraints(result.x, *args)` is non-negative
 
 Because the algorithm is randomized, results can vary slightly between runs.
+Use `seed=<int>` for fully reproducible output.

@@ -18,8 +18,7 @@ incdir_f2py = run_command(py,
 ).stdout().strip()
 
 fortranobject_c = run_command(py,
-  ['-c', '''import numpy.f2py, os
-print(os.path.join(numpy.f2py.get_include(), "fortranobject.c"))'''],
+  ['-c', 'import numpy.f2py; import os; print(os.path.join(numpy.f2py.get_include(), "fortranobject.c"))'],
   check: true
 ).stdout().strip()
 
@@ -30,9 +29,16 @@ fortran_sources = run_command(py, ['-c',
 ], check: true).stdout().strip().split()
 message('Fortran sources: ', fortran_sources)
 
-pyf_sources = ['_pyswarm.pyf']
+python_sources = run_command(py, ['-c',
+    'import glob; print(" ".join(glob.glob("*.py")))'
+], check: true).stdout().strip().split()
+message('Python sources: ', python_sources)
 
-message('Fortran sources (with pyf): ', fortran_sources + pyf_sources)
+pyf_sources = [
+  '_pyswarm.pyf'
+]
+
+message('Fortran sources: ', fortran_sources + pyf_sources)
 
 f2py_target = custom_target(
   py_mod_name + '_f2py',
@@ -60,6 +66,5 @@ py.extension_module(
   c_args: ['-I' + incdir_numpy, '-I' + incdir_f2py],
   link_args: fortran_link_args,
   dependencies: py_dep,
-  subdir: 'pyswarm',
   install: true
 )

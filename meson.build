@@ -5,4 +5,3 @@ project(
 )
 
 subdir('src')
-subdir('pyswarm')

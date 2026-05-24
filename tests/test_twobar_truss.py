@@ -1,7 +1,7 @@
 import numpy as np
 from numpy.typing import NDArray
 
-from pyswarm.pso import pso
+from pyswarm import pso
 
 
 def weight(x: NDArray[np.floating], *args: float) -> np.floating:
@@ -47,7 +47,7 @@ def test_twobar_truss() -> None:
     args = (b, rho, e, p)
     lb = [10, 1, 0.01]
     ub = [30, 3, 0.25]
-    xopt, fopt = pso(
+    result = pso(
         weight,
         lb,
         ub,
@@ -57,6 +57,7 @@ def test_twobar_truss() -> None:
         debug=True,
         seed=0,
     )
+    xopt, fopt = result.x, result.fun
     if not np.isclose(fopt, 11.94, atol=0.1):
         msg = f"Expected fopt close to 11.94, got {fopt}"
         raise AssertionError(msg)

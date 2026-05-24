@@ -4,7 +4,8 @@ All public symbols are exported from the `pyswarm` package.
 
 ## Exported symbols
 
-- `pso`
+- [`pso`](#pso)
+- [`OptimizeResult`](#optimizeresult)
 
 ---
 
@@ -17,8 +18,8 @@ Minimize an objective function using Particle Swarm Optimization.
 ```python
 pso(
     func,
-    lb,
-    ub,
+    lb=None,
+    ub=None,
     ieqcons=None,
     f_ieqcons=None,
     args=(),
@@ -31,8 +32,12 @@ pso(
     minstep=1e-8,
     minfunc=1e-8,
     debug=False,
-    processes=1,
     particle_output=False,
+    seed=None,
+    patience=0,
+    bounds=None,
+    init=None,
+    intvar=None,
 )
 ```
 
@@ -43,82 +48,107 @@ pso(
   vector as the first argument and returns a scalar objective value.
 
 `lb`
-: Lower bounds for each design variable.
+: Lower bounds for each design variable. Required when `bounds` is not
+  provided.
 
 `ub`
-: Upper bounds for each design variable.
+: Upper bounds for each design variable. Required when `bounds` is not
+  provided.
 
 ### Optional arguments
 
 `ieqcons`
 : List of constraint functions. Each function must return a value greater than
-  or equal to `0.0` for a feasible candidate. If `f_ieqcons` is provided, this
-  list is ignored.
+  or equal to `0.0` for a feasible candidate. Ignored when `f_ieqcons` is
+  provided.
 
 `f_ieqcons`
-: A single constraint function returning a 1-D array-like object. Every returned
-  value must be greater than or equal to `0.0` for a feasible candidate.
+: A single constraint function returning a 1-D array-like object. Every
+  returned value must be greater than or equal to `0.0` for a feasible
+  candidate. Overrides `ieqcons` when provided.
 
 `args`
-: Additional positional arguments passed to the objective and constraint
+: Additional positional arguments forwarded to the objective and constraint
   functions.
 
 `kwargs`
-: Additional keyword arguments passed to the objective and constraint functions.
+: Additional keyword arguments forwarded to the objective and constraint
+  functions.
 
 `swarmsize`
 : Number of particles in the swarm. Default: `100`.
 
 `omega`
-: Particle velocity scaling factor. Default: `0.5`.
+: Inertia weight — scales the previous velocity. Default: `0.5`.
 
 `phip`
-: Scaling factor for movement toward each particle's best known position.
-  Default: `0.5`.
+: Cognitive coefficient — scales movement toward each particle's personal
+  best. Default: `0.5`.
 
 `phig`
-: Scaling factor for movement toward the swarm's best known position.
+: Social coefficient — scales movement toward the swarm's global best.
   Default: `0.5`.
 
 `maxiter`
 : Maximum number of iterations. Default: `100`.
 
 `minstep`
-: Minimum step size of the swarm's best position before the search terminates.
+: Convergence threshold on the Euclidean distance the global best moves
+  between improvements. The search terminates when this threshold is met.
   Default: `1e-8`.
 
 `minfunc`
-: Minimum change in the swarm's best objective value before the search
-  terminates. Default: `1e-8`.
+: Convergence threshold on the absolute improvement in the global best
+  objective value. The search terminates when this threshold is met.
+  Default: `1e-8`.
 
 `debug`
-: If `True`, prints progress information during optimization. Default: `False`.
-
-`processes`
-: Number of processes used to evaluate the objective and constraints. Default:
-  `1`.
+: If `True`, prints progress messages from the Fortran kernel to stdout.
+  Default: `False`.
 
 `particle_output`
-: If `True`, returns per-particle best positions and objective values in
-  addition to the swarm best. Default: `False`.
+: If `True`, the returned `OptimizeResult` includes `particles` (best
+  per-particle positions) and `particle_fun` (objective values at those
+  positions). Default: `False`.
+
+`seed`
+: Integer seed for the random number generator. Pass an integer for fully
+  reproducible runs; `None` gives non-deterministic behavior. Default: `None`.
+
+`patience`
+: Maximum number of consecutive iterations without an improvement to the
+  global best before the search terminates early. Set to `0` to disable
+  patience-based early stopping. Default: `0`.
+
+`bounds`
+: SciPy-style sequence of `(lower, upper)` pairs, one per design variable.
+  Overrides `lb` and `ub` when provided. Example: `bounds=[(-1, 1), (0, 5)]`.
+
+`init`
+: Custom initial particle positions as an array of shape
+  `(swarmsize, ndim)`. Values outside `[lb, ub]` are clipped. When omitted,
+  positions are sampled uniformly at random. Default: `None`.
+
+`intvar`
+: List of **0-based** indices of design variables that must take integer
+  values. After each position update the selected dimensions are rounded to
+  the nearest integer and clipped to `[lb, ub]`. Bounds for integer variables
+  should themselves be integers. Default: `None`.
 
 ### Returns
 
-By default, `pso` returns:
+`result` — an [`OptimizeResult`](#optimizeresult) with the following fields:
 
-`xopt`
-: The swarm's best known position.
-
-`fopt`
-: The objective value at `xopt`.
-
-If `particle_output=True`, it also returns:
-
-`p`
-: The best known position per particle.
-
-`pf`
-: The objective values at each position in `p`.
+| Field | Type | Description |
+|---|---|---|
+| `x` | `ndarray` | Best position found (global optimum estimate) |
+| `fun` | `float` | Objective value at `x` |
+| `success` | `bool` | `True` when a feasible solution was found |
+| `message` | `str` | Human-readable reason for termination |
+| `nit` | `int` | Number of PSO iterations performed |
+| `nfev` | `int` | Total number of objective-function evaluations |
+| `particles` | `ndarray` | Best per-particle positions (`particle_output=True` only) |
+| `particle_fun` | `ndarray` | Objective values at `particles` (`particle_output=True` only) |
 
 ### Raises
 
@@ -126,8 +156,33 @@ If `particle_output=True`, it also returns:
 : Raised when `func` is not callable.
 
 `ValueError`
-: Raised when lower and upper bounds have different lengths or when any upper
-  bound is not greater than its corresponding lower bound.
+: Raised when lower and upper bounds have different lengths, or when any
+  upper bound is not strictly greater than its corresponding lower bound.
+
+---
+
+## `OptimizeResult`
+
+A `dict` subclass with attribute access, compatible with
+`scipy.optimize.OptimizeResult`.
+
+```python
+result = pso(func, lb, ub)
+
+# Attribute access
+print(result.x)  # best position
+print(result.fun)  # objective value at result.x
+print(result.success)  # True if a feasible solution was found
+print(result.message)  # termination reason
+print(result.nit)  # iterations performed
+print(result.nfev)  # objective-function evaluations
+
+# Dict-style access — equivalent to the above
+print(result["x"])
+print(result["fun"])
+```
+
+---
 
 ## Constraint conventions
 
@@ -138,8 +193,23 @@ def constraint(x):
     return [limit - measured_value]
 ```
 
-Use `f_ieqcons` when one function returns all constraint values. Use `ieqcons`
-when each constraint is its own scalar function.
+Use `f_ieqcons` when one function returns all constraint values at once:
+
+```python
+def all_constraints(x):
+    return [c1(x), c2(x), c3(x)]
+
+
+result = pso(func, lb, ub, f_ieqcons=all_constraints)
+```
+
+Use `ieqcons` when each constraint is its own scalar function:
+
+```python
+result = pso(func, lb, ub, ieqcons=[c1, c2, c3])
+```
+
+---
 
 ## References
 

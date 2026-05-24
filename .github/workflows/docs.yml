@@ -1,0 +1,46 @@
+name: Documentation
+
+on:
+  release:
+    types: [published]
+
+permissions:
+  pages: write
+  id-token: write
+
+jobs:
+  build:
+    name: Build Documentation
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Setup uv
+        uses: astral-sh/setup-uv@v7
+
+      - name: Install docs dependencies
+        run: uv sync --group docs
+
+      - name: Build Zensical site
+        run: uv run --no-sync zensical build --clean
+
+      - name: Upload Pages Artifacts
+        uses: actions/upload-pages-artifact@v5
+        with:
+          path: site
+
+  deploy:
+    name: Deploy to GitHub Pages
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v5

@@ -194,6 +194,17 @@ cython_debug/
 # PyPI configuration file
 .pypirc
 
+# Meson build artefacts
+build/
+.mesonpy*/
+_build/
+meson-info/
+meson-logs/
+meson-private/
+*.so
+*.pyd
+build.log
+
 # Cursor
 #  Cursor is an AI-powered code editor. `.cursorignore` specifies files/directories to
 #  exclude from AI features like autocomplete and code analysis. Recommended for sensitive data

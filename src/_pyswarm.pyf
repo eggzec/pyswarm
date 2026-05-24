@@ -1,0 +1,88 @@
+!    -*- f77 -*-
+!
+! _pyswarm.pyf -- f2py interface for the Fortran 77 PSO subroutine.
+!
+! Notes
+! -----
+! * Both blocks must be python module blocks (f2py requirement when using
+!   a pyf file without -m flag, as meson's custom_target does).
+!
+! * pso__user__routines declares the EVAL callback signature that Fortran
+!   sees.  Python callables passed as `eval` must accept
+!   (x: float64 array of length ndim, ndim: int) and return a float.
+!   Return >= 1e300 to signal infeasibility.
+!
+! * Dependency order to avoid cycles:
+!     lb    -> ndim
+!     x     -> nswarm   (x depends only on ndim, not nswarm)
+!     rnd_p -> maxiter  (rnd_p depends only on nswarm,ndim, not maxiter)
+!     ivar  -> nivar
+!
+! * Python call signature:
+!   x, v, g, fg, p, fp, niters, status = _pyswarm.pso(
+!       eval, lb, ub, x, v, rnd_p, rnd_g,
+!       omega, phip, phig, minstep, minfunc, patience, debug, ivar)
+!
+
+python module pso__user__routines
+    interface pso_user_interface
+        function eval(xtmp, ndim)
+            double precision :: xtmp(ndim)
+            integer          :: ndim
+            double precision :: eval
+        end function eval
+    end interface pso_user_interface
+end python module pso__user__routines
+
+
+python module _pyswarm
+    interface
+        subroutine pso(eval, lb, ub, x, v, rnd_p, rnd_g, omega, phip, phig, maxiter, minstep, minfunc, patience, debug, nswarm, ndim, ivar, nivar, xtmp, fx, g, fg, p, fp, niters, status)
+            use pso__user__routines
+            external eval
+
+            ! --- bounds ---
+            double precision, dimension(ndim), intent(in)                  :: lb
+            double precision, dimension(ndim), depend(ndim), intent(in)    :: ub
+
+            ! --- particle state (in/out: Python gives init, Fortran updates) ---
+            double precision, dimension(nswarm,ndim), depend(ndim), intent(in,out)         :: x
+            double precision, dimension(nswarm,ndim), depend(nswarm,ndim), intent(in,out)  :: v
+
+            ! --- pre-generated random arrays ---
+            double precision, dimension(maxiter,nswarm,ndim), depend(nswarm,ndim), intent(in)          :: rnd_p
+            double precision, dimension(maxiter,nswarm,ndim), depend(maxiter,nswarm,ndim), intent(in)  :: rnd_g
+
+            ! --- PSO scalar parameters ---
+            double precision, intent(in) :: omega
+            double precision, intent(in) :: phip
+            double precision, intent(in) :: phig
+            double precision, intent(in) :: minstep
+            double precision, intent(in) :: minfunc
+            integer,          intent(in) :: patience
+            integer,          intent(in) :: debug
+
+            ! --- hidden dimension scalars (no cycles: each derived from a single source) ---
+            integer, optional, check(shape(rnd_p,0)==maxiter), depend(rnd_p) :: maxiter=shape(rnd_p,0)
+            integer, optional, check(shape(x,0)==nswarm),      depend(x)     :: nswarm=shape(x,0)
+            integer, optional, check(shape(lb,0)==ndim),        depend(lb)    :: ndim=shape(lb,0)
+
+            ! --- integer variable indices ---
+            integer, dimension(nivar), intent(in)                              :: ivar
+            integer, optional, check(shape(ivar,0)==nivar), depend(ivar)       :: nivar=shape(ivar,0)
+
+            ! --- hidden workspace arrays (allocated by f2py, invisible to Python) ---
+            double precision, dimension(ndim),   depend(ndim),   intent(hide) :: xtmp
+            double precision, dimension(nswarm), depend(nswarm), intent(hide) :: fx
+
+            ! --- outputs ---
+            double precision, dimension(ndim),        depend(ndim),        intent(out) :: g
+            double precision,                                               intent(out) :: fg
+            double precision, dimension(nswarm,ndim), depend(nswarm,ndim), intent(out) :: p
+            double precision, dimension(nswarm),      depend(nswarm),      intent(out) :: fp
+            integer,                                                        intent(out) :: niters
+            integer,                                                        intent(out) :: status
+
+        end subroutine pso
+    end interface
+end python module _pyswarm

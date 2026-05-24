@@ -2,8 +2,8 @@
 
 **Particle Swarm Optimization (PSO) for Python**
 
-[![Tests](https://github.com/eggzec/pyswarm/actions/workflows/code_test.yml/badge.svg)](https://github.com/eggzec/pyswarm/actions/workflows/code_test.yml)
-[![Documentation](https://github.com/eggzec/pyswarm/actions/workflows/docs_build.yml/badge.svg)](https://github.com/eggzec/pyswarm/actions/workflows/docs_build.yml)
+[![Tests](https://github.com/eggzec/pyswarm/actions/workflows/test.yml/badge.svg)](https://github.com/eggzec/pyswarm/actions/workflows/test.yml)
+[![Documentation](https://github.com/eggzec/pyswarm/actions/workflows/docs.yml/badge.svg)](https://github.com/eggzec/pyswarm/actions/workflows/docs.yml)
 [![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
 
 [![codecov](https://codecov.io/github/eggzec/pyswarm/graph/badge.svg)](https://codecov.io/github/eggzec/pyswarm)

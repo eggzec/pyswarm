@@ -66,5 +66,11 @@ py.extension_module(
   c_args: ['-I' + incdir_numpy, '-I' + incdir_f2py],
   link_args: fortran_link_args,
   dependencies: py_dep,
+  subdir: 'pyswarm',
   install: true
+)
+
+py.install_sources(
+  ['../pyswarm/__init__.py'],
+  subdir: 'pyswarm'
 )

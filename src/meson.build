@@ -1,6 +1,8 @@
 
 add_languages('fortran')
 
+cc = meson.get_compiler('c')
+
 py_mod = import('python')
 py = py_mod.find_installation(pure: false)
 py_dep = py.dependency()
@@ -47,14 +49,14 @@ f2py_target = custom_target(
   command: [f2py, '@INPUT@', '--lower', '--build-dir', meson.current_build_dir()]
 )
 
-if host_machine.system() == 'windows'
+if host_machine.system() == 'windows' and cc.get_id() in ['gcc', 'clang']
   fortran_link_args = [
+    '-static',
     '-static-libgfortran',
     '-static-libgcc',
     '-static-libquadmath',
-    '-Wl,-Bstatic',
-    '-lwinpthread',
-    '-Wl,-Bdynamic',
+    '-static-libstdc++',
+    '-lquadmath',
   ]
 else
   fortran_link_args = []

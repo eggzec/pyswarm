@@ -54,6 +54,18 @@ jobs:
         if: runner.os == 'macOS'
         run: echo "$(brew --prefix gcc)/bin" >> "$GITHUB_PATH"
 
+      - name: Install MinGW via Chocolatey (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          choco install -y mingw
+          $paths = @(
+            'C:\\ProgramData\\mingw64\\mingw64\\bin',
+            'C:\\ProgramData\\chocolatey\\lib\\mingw\\tools\\install\\mingw64\\bin',
+            'C:\\tools\\mingw64\\bin',
+            'C:\\ProgramData\\chocolatey\\bin'
+          )
+          foreach ($p in $paths) { if (Test-Path $p) { echo $p >> $env:GITHUB_PATH; Write-Host "Added $p to PATH" } }
+
       - name: Setup uv
         uses: astral-sh/setup-uv@v7
 
@@ -62,6 +74,44 @@ jobs:
 
       - name: Run Pytest
         run: uv run --no-sync pytest -v -n auto --cov --cov-report=xml
+
+      - name: Debug Windows native deps
+        if: failure() && runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          Write-Host 'PATH:'
+          Write-Host $env:PATH
+
+          foreach ($cmd in @('gcc', 'gfortran', 'objdump')) {
+            try {
+              Write-Host "Command: $cmd"
+              Get-Command $cmd -ErrorAction Stop | Format-List *
+            } catch {
+              Write-Host "Missing command: $cmd"
+            }
+          }
+
+          $dllRoots = @(
+            'C:\ProgramData\mingw64\mingw64\bin',
+            'C:\ProgramData\chocolatey\lib\mingw\tools\install\mingw64\bin',
+            'C:\tools\mingw64\bin'
+          )
+          foreach ($root in $dllRoots) {
+            if (Test-Path $root) {
+              Write-Host "DLLs in $root"
+              Get-ChildItem $root -Filter '*.dll' | Select-Object -ExpandProperty Name
+            }
+          }
+
+          $pyds = Get-ChildItem -Path . -Recurse -Filter '*.pyd' -ErrorAction SilentlyContinue
+          foreach ($pyd in $pyds) {
+            Write-Host "Inspecting $($pyd.FullName)"
+            try {
+              & objdump -p $pyd.FullName | Select-String 'DLL Name|Name:|ImageBase|Subsystem'
+            } catch {
+              Write-Host "objdump failed for $($pyd.FullName)"
+            }
+          }
 
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v6

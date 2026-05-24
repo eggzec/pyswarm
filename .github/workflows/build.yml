@@ -42,9 +42,21 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Add gfortran to PATH (macOS)
+      - name: Add gforran to PATH (macOS)
         if: runner.os == 'macOS'
         run: echo "$(brew --prefix gcc)/bin" >> "$GITHUB_PATH"
+
+      - name: Install MinGW via Chocolatey (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          choco install -y mingw
+          $paths = @(
+            'C:\\ProgramData\\mingw64\\mingw64\\bin',
+            'C:\\ProgramData\\chocolatey\\lib\\mingw\\tools\\install\\mingw64\\bin',
+            'C:\\tools\\mingw64\\bin',
+            'C:\\ProgramData\\chocolatey\\bin'
+          )
+          foreach ($p in $paths) { if (Test-Path $p) { echo $p >> $env:GITHUB_PATH; Write-Host "Added $p to PATH" } }
 
       - name: Install Python dependencies
         run: |
@@ -58,6 +70,32 @@ jobs:
           CIBW_ARCHS_MACOS: arm64
           CIBW_ARCHS_WINDOWS: AMD64
           CIBW_ENVIRONMENT_MACOS: "PATH=/opt/homebrew/bin:$PATH MACOSX_DEPLOYMENT_TARGET=15.0"
+
+      - name: Debug Windows native deps
+        if: failure() && runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          Write-Host 'PATH:'
+          Write-Host $env:PATH
+
+          foreach ($cmd in @('gcc', 'gfortran', 'objdump')) {
+            try {
+              Write-Host "Command: $cmd"
+              Get-Command $cmd -ErrorAction Stop | Format-List *
+            } catch {
+              Write-Host "Missing command: $cmd"
+            }
+          }
+
+          $pyds = Get-ChildItem -Path . -Recurse -Filter '*.pyd' -ErrorAction SilentlyContinue
+          foreach ($pyd in $pyds) {
+            Write-Host "Inspecting $($pyd.FullName)"
+            try {
+              & objdump -p $pyd.FullName | Select-String 'DLL Name|Name:|ImageBase|Subsystem'
+            } catch {
+              Write-Host "objdump failed for $($pyd.FullName)"
+            }
+          }
 
       - name: Upload wheels
         uses: actions/upload-artifact@v7

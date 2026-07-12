@@ -46,7 +46,7 @@ jobs:
         python-version: ${{ fromJson(needs.fetch-python-versions.outputs.supported_versions) }}
 
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
 

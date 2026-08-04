@@ -13,7 +13,9 @@ def banana_func(x: NDArray[np.floating]) -> np.floating:
 def test_banana_no_constraints() -> None:
     lb = [-3, -1]
     ub = [2, 6]
-    result = pso(banana_func, lb, ub, debug=True)
+    # Seeded: PSO is stochastic, and unseeded this assertion fails on
+    # roughly 1 in 75 runs at atol=0.001.
+    result = pso(banana_func, lb, ub, debug=True, seed=2)
     xopt, fopt = result.x, result.fun
     if not np.allclose(xopt, [1.0, 1.0], atol=0.001):
         msg = f"Expected xopt close to [1.0, 1.0], got {xopt}"

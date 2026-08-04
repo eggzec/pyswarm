@@ -19,7 +19,9 @@ def banana_constraint(x: NDArray[np.floating]) -> list[float]:
 def test_banana_with_constraints() -> None:
     lb = [-3, -1]
     ub = [2, 6]
-    result = pso(banana_func, lb, ub, f_ieqcons=banana_constraint, debug=True)
+    result = pso(
+        banana_func, lb, ub, f_ieqcons=banana_constraint, debug=True, seed=2
+    )
     xopt, fopt = result.x, result.fun
     if not np.allclose(xopt, [0.5, 0.75], atol=0.1):
         msg = f"Expected xopt close to [0.5, 0.75], got {xopt}"

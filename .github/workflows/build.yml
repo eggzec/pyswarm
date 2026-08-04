@@ -42,9 +42,12 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Add gforran to PATH (macOS)
+      - name: Install gfortran (macOS)
         if: runner.os == 'macOS'
-        run: echo "$(brew --prefix gcc)/bin" >> "$GITHUB_PATH"
+        run: |
+          brew install gcc || brew link --overwrite gcc
+          echo "$(brew --prefix gcc)/bin" >> "$GITHUB_PATH"
+          "$(brew --prefix gcc)/bin/gfortran" --version
 
       - name: Install MinGW via Chocolatey (Windows)
         if: runner.os == 'Windows'

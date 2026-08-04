@@ -42,7 +42,9 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
+        # macos pinned to 15 to match the wheel target used in build.yml
+        # and release-pypi.yml; see the note there.
+        os: [ubuntu-latest, windows-latest, macos-15]
         python-version: ${{ fromJson(needs.fetch-python-versions.outputs.supported_versions) }}
 
     steps:
@@ -50,9 +52,12 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Add gfortran to PATH (macOS)
+      - name: Install gfortran (macOS)
         if: runner.os == 'macOS'
-        run: echo "$(brew --prefix gcc)/bin" >> "$GITHUB_PATH"
+        run: |
+          brew install gcc || brew link --overwrite gcc
+          echo "$(brew --prefix gcc)/bin" >> "$GITHUB_PATH"
+          "$(brew --prefix gcc)/bin/gfortran" --version
 
       - name: Install MinGW via Chocolatey (Windows)
         if: runner.os == 'Windows'

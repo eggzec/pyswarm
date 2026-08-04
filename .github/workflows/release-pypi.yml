@@ -23,7 +23,11 @@ jobs:
         os:
           - ubuntu-latest
           - windows-latest
-          - macos-latest
+          # Pinned: Homebrew bottles on macos-latest (macOS 26) carry
+          # minos 26.0, which delocate rejects against the 15.0 wheel
+          # target below. Keep this image and MACOSX_DEPLOYMENT_TARGET
+          # in sync if either changes.
+          - macos-15
 
     steps:
       - name: Checkout source

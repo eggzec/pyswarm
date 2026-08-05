@@ -29,11 +29,23 @@ jobs:
       - name: Fetch Supported Python
         id: fetch-versions
         run: |
-          versions=$(curl -fsSL https://endoflife.date/api/v1/products/python/ \
-                     | jq '[ .result.releases[] | select(.isEol == false) | .label ]')
+          # Without pipefail this pipeline reports jq's exit status, not
+          # curl's, so a network failure is masked: jq reads empty input,
+          # emits [], and the matrix expands to zero jobs. build-and-test
+          # then never gets created and the run fails with no failing step.
+          set -euo pipefail
 
-          echo "supported_versions=$(echo $versions | jq -c '.')"        >> $GITHUB_OUTPUT
-          echo "bound_versions=$(echo $versions | jq -c '[.[0],.[-1]]')" >> $GITHUB_OUTPUT
+          versions=$(curl -fsSL --retry 3 --retry-all-errors --connect-timeout 15 \
+                       https://endoflife.date/api/v1/products/python/ \
+                     | jq -c '[ .result.releases[] | select(.isEol == false) | .label ]')
+
+          if [ "$(echo "$versions" | jq 'length')" -eq 0 ]; then
+            echo "::error::endoflife.date returned no supported Python versions"
+            exit 1
+          fi
+
+          echo "supported_versions=$versions"                              >> $GITHUB_OUTPUT
+          echo "bound_versions=$(echo "$versions" | jq -c '[.[0],.[-1]]')" >> $GITHUB_OUTPUT
 
   build-and-test:
     name: Build and Test

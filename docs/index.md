@@ -1,3 +1,5 @@
+![PySwarm](assets/pyswarm-banner.png)
+
 # PySwarm
 
 **Particle Swarm Optimization (PSO) for Python**

@@ -1,0 +1,111 @@
+name: Python Versions Sync
+
+# Keeps the Python versions declared in pyproject.toml in step with the
+# versions upstream still supports.
+#
+# The active set is fetched from endoflife.date rather than hardcoded --
+# the same source the build matrix in the test workflow uses -- so the
+# classifiers, the requires-python floor and the CI matrix cannot drift
+# apart from each other.
+#
+# When the declaration differs from the active set this opens a PR as
+# github-actions[bot]. Note that a PR opened with GITHUB_TOKEN does not
+# itself trigger further workflow runs; close and reopen it if you need
+# the full check suite to run against the branch.
+
+on:
+  schedule:
+    - cron: "0 3 1 * *"  # 03:00 UTC on the first of every month
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  sync:
+    name: Sync Python versions
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Fetch supported Python versions
+        id: fetch-versions
+        run: |
+          # Without pipefail this pipeline reports jq's exit status rather
+          # than curl's, so a network failure is masked: jq reads empty
+          # input and emits [], which reads as "every version is EOL" and
+          # would strip the classifiers wholesale.
+          set -euo pipefail
+
+          versions=$(curl -fsSL --retry 3 --retry-all-errors --connect-timeout 15 \
+                       https://endoflife.date/api/v1/products/python/ \
+                     | jq -c '[ .result.releases[] | select(.isEol == false) | .label ]')
+
+          if [ "$(echo "$versions" | jq 'length')" -eq 0 ]; then
+            echo "::error::endoflife.date returned no supported Python versions"
+            exit 1
+          fi
+
+          echo "active=$versions" >> "$GITHUB_OUTPUT"
+          echo "Active Python versions: $versions"
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.x"
+
+      - name: Apply to pyproject.toml
+        id: update
+        env:
+          ACTIVE_VERSIONS: ${{ steps.fetch-versions.outputs.active }}
+          PR_BODY_FILE: ${{ runner.temp }}/pr-body.md
+        run: |
+          set -euo pipefail
+          pip install --quiet tomlkit "validate-pyproject[all]"
+          python .github/scripts/sync_python_versions.py
+
+          # Lint the result before it can become a pull request. This also
+          # guards the one case the sync cannot: endoflife.date announcing a
+          # release line before trove-classifiers knows the classifier for
+          # it, which PyPI would reject at upload time.
+          validate-pyproject pyproject.toml
+
+      - name: Open pull request
+        if: steps.update.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BASE: ${{ github.event.repository.default_branch }}
+          PR_BODY_FILE: ${{ runner.temp }}/pr-body.md
+        run: |
+          set -euo pipefail
+          BRANCH="chore/python-versions-sync"
+          TITLE="chore: sync Python versions in pyproject.toml"
+
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git checkout -B "$BRANCH"
+          git add pyproject.toml
+          if git diff --cached --quiet; then
+            echo "Nothing staged; the tree already matches."
+            exit 0
+          fi
+
+          git commit -m "$TITLE" -m "$(cat "$PR_BODY_FILE")"
+
+          # The branch is bot-owned and always rebuilt from the default
+          # branch, so an existing one is intentionally replaced.
+          git push --force-with-lease origin "$BRANCH"
+
+          existing=$(gh pr list --head "$BRANCH" --state open --json number --jq '.[0].number // empty')
+          if [ -n "$existing" ]; then
+            echo "Updated existing PR #$existing"
+          else
+            gh pr create --base "$BASE" --head "$BRANCH" \
+              --title "$TITLE" --body-file "$PR_BODY_FILE"
+          fi

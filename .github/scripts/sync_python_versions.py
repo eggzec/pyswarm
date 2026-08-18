@@ -244,7 +244,7 @@ def resolve(project: Table, active: list[str]) -> Resolved:
     requires = str(project.get("requires-python", "")).strip()
     match = FLOOR.search(requires)
     was_floor = match.group(1) if match else None
-    floor = max([f for f in (was_floor, active[0]) if f], key=key)
+    floor = max((f for f in (was_floor, active[0]) if f), key=key)
     supported = [v for v in active if key(v) >= key(floor)]
     if not supported:
         fail(f"floor {was_floor} excludes every active version")

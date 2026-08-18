@@ -82,6 +82,9 @@ source = "vcs"
 include = [ "pyswarm" ]
 
 [tool.ruff]
+# CI workflow definitions and the helper scripts they run are not
+# part of the published package, so they are out of scope here.
+extend-exclude = [".github"]
 line-length = 80
 indent-width = 4
 preview = true

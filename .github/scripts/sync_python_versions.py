@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
-"""Sync the Python versions declared in pyproject.toml with upstream.
+"""
+Sync the Python versions declared in pyproject.toml with upstream.
 
 Reads the active (non-EOL) versions from the ACTIVE_VERSIONS environment
 variable -- a JSON array of "X.Y" labels as produced by endoflife.date --
@@ -11,7 +12,7 @@ and rewrites, in place:
   * project.requires-python, raised to the oldest still-supported version
     when the current floor has gone end-of-life.
 
-The managed block always has the same shape:
+The managed block always has the same shape::
 
     Programming Language :: Python :: <MAJOR>
     Programming Language :: Python :: <every supported X.Y, ascending>
@@ -19,7 +20,7 @@ The managed block always has the same shape:
 Nothing about the major version is hardcoded. <MAJOR> is the newest major
 upstream still supports, and it is *replaced* rather than accumulated --
 the day a 4.0 ships the bare-major line flips from 3 to 4 on its own, and
-again to 5 when that day comes, with no edit to this script:
+again to 5 when that day comes, with no edit to this script::
 
     Programming Language :: Python :: 4
     Programming Language :: Python :: 3.14
@@ -44,6 +45,7 @@ of the entries they replace.
 
 Nothing is written when the declaration already matches, so the calling
 workflow opens a pull request only on a real change.
+
 """
 
 from __future__ import annotations
@@ -56,7 +58,8 @@ from pathlib import Path
 from typing import NoReturn
 
 import tomlkit
-from tomlkit.items import Array
+from tomlkit import TOMLDocument
+from tomlkit.items import Array, Table
 
 
 PYPROJECT = Path("pyproject.toml")
@@ -71,25 +74,41 @@ ONLY = re.compile(r"^Programming Language :: Python :: (\d+) :: Only$")
 FLOOR = re.compile(r">=\s*(\d+(?:\.\d+)*)")
 LABEL = re.compile(r"\d+\.\d+")
 
+# The old floor and the new one.
+Floors = tuple[str | None, str]
+# The old floor, the new floor, and the versions at or above it.
+Resolved = tuple[str | None, str, list[str]]
+
 
 def key(version: str) -> tuple[int, ...]:
-    """Order versions numerically rather than lexically.
+    """
+    Order versions numerically rather than lexically.
 
-    Args:
-        version: A dotted version such as "3.9" or "3.10".
+    Parameters
+    ----------
+    version : str
+        A dotted version such as "3.9" or "3.10".
 
-    Returns:
+    Returns
+    -------
+    tuple[int, ...]
         The integer components, so 3.9 sorts before 3.10.
+
     """
     return tuple(int(part) for part in version.split("."))
 
 
 def emit(name: str, value: str) -> None:
-    """Publish a step output for the calling workflow.
+    """
+    Publish a step output for the calling workflow.
 
-    Args:
-        name: Output name.
-        value: Output value.
+    Parameters
+    ----------
+    name : str
+        Output name.
+    value : str
+        Output value.
+
     """
     out = os.environ.get("GITHUB_OUTPUT")
     if out:
@@ -98,38 +117,56 @@ def emit(name: str, value: str) -> None:
 
 
 def fail(message: str) -> NoReturn:
-    """Annotate the failure for GitHub and stop.
+    """
+    Annotate the failure for GitHub and stop.
 
-    Args:
-        message: What went wrong.
+    Parameters
+    ----------
+    message : str
+        What went wrong.
 
-    Raises:
-        SystemExit: Always.
+    Raises
+    ------
+    SystemExit
+        Always.
+
     """
     print(f"::error::{message}", file=sys.stderr)
     raise SystemExit(1)
 
 
 def owns(value: str) -> bool:
-    """Report whether this script manages a classifier.
+    """
+    Report whether this script manages a classifier.
 
-    Args:
-        value: A classifier string.
+    Parameters
+    ----------
+    value : str
+        A classifier string.
 
-    Returns:
+    Returns
+    -------
+    bool
         True when the entry is one this script rewrites.
+
     """
     return bool(MAJOR.match(value) or MINOR.match(value) or ONLY.match(value))
 
 
 def is_literal(item: object) -> bool:
-    """Report whether an item uses TOML literal (single) quotes.
+    """
+    Report whether an item uses TOML literal (single) quotes.
 
-    Args:
-        item: An item from the classifiers array.
+    Parameters
+    ----------
+    item : object
+        An item from the classifiers array.
 
-    Returns:
+    Returns
+    -------
+    bool
         True when the item is written with literal quotes.
+
     """
     raw = getattr(item, "as_string", None)
     if raw is None:
@@ -138,13 +175,19 @@ def is_literal(item: object) -> bool:
 
 
 def read_active(raw: str) -> list[str]:
-    """Parse the active version labels supplied by the workflow.
+    """
+    Parse the active version labels supplied by the workflow.
 
-    Args:
-        raw: JSON array of version labels.
+    Parameters
+    ----------
+    raw : str
+        JSON array of version labels.
 
-    Returns:
+    Returns
+    -------
+    list[str]
         The "X.Y" labels, ascending.
+
     """
     if not raw:
         fail("ACTIVE_VERSIONS is unset")
@@ -162,17 +205,69 @@ def read_active(raw: str) -> list[str]:
     return active
 
 
+def load_project() -> tuple[TOMLDocument, Table]:
+    """
+    Read pyproject.toml and return its document and project table.
+
+    Returns
+    -------
+    tuple[TOMLDocument, Table]
+        The parsed document and its [project] table.
+
+    """
+    if not PYPROJECT.is_file():
+        fail("pyproject.toml not found")
+    document = tomlkit.parse(PYPROJECT.read_text(encoding="utf-8"))
+    project = document.get("project")
+    if project is None:
+        fail("pyproject.toml has no [project] table")
+    return document, project
+
+
+def resolve(project: Table, active: list[str]) -> Resolved:
+    """
+    Work out the requires-python floor and the versions to declare.
+
+    Parameters
+    ----------
+    project : Table
+        The [project] table.
+    active : list[str]
+        Versions upstream still supports, ascending.
+
+    Returns
+    -------
+    Resolved
+        The old floor, the new floor, and the versions at or above it.
+
+    """
+    requires = str(project.get("requires-python", "")).strip()
+    match = FLOOR.search(requires)
+    was_floor = match.group(1) if match else None
+    floor = max([f for f in (was_floor, active[0]) if f], key=key)
+    supported = [v for v in active if key(v) >= key(floor)]
+    if not supported:
+        fail(f"floor {was_floor} excludes every active version")
+    return was_floor, floor, supported
+
+
 def build_block(supported: list[str]) -> list[str]:
-    """Render the managed classifier block.
+    """
+    Render the managed classifier block.
 
     The bare-major line tracks the newest supported major and is replaced
     as it advances, so there is only ever one of them.
 
-    Args:
-        supported: Supported "X.Y" versions, ascending.
+    Parameters
+    ----------
+    supported : list[str]
+        Supported "X.Y" versions, ascending.
 
-    Returns:
+    Returns
+    -------
+    list[str]
         The classifier strings, in the order they should appear.
+
     """
     major = max(int(v.split(".")[0]) for v in supported)
     return [f"Programming Language :: Python :: {major}"] + [
@@ -181,14 +276,21 @@ def build_block(supported: list[str]) -> list[str]:
 
 
 def splice(items: list[object], wanted: list[str]) -> Array:
-    """Replace the managed entries, leaving every other item untouched.
+    """
+    Replace the managed entries, leaving every other item untouched.
 
-    Args:
-        items: The existing classifier items.
-        wanted: The managed block to write in their place.
+    Parameters
+    ----------
+    items : list[object]
+        The existing classifier items.
+    wanted : list[str]
+        The managed block to write in their place.
 
-    Returns:
+    Returns
+    -------
+    Array
         A new multiline array.
+
     """
     values = [str(item) for item in items]
     owned = [i for i, value in enumerate(values) if owns(value)]
@@ -218,95 +320,140 @@ def splice(items: list[object], wanted: list[str]) -> Array:
 
 
 def minors(block: list[str]) -> list[str]:
-    """Extract the per-minor versions from a classifier block.
+    """
+    Extract the per-minor versions from a classifier block.
 
-    Args:
-        block: Classifier strings.
+    Parameters
+    ----------
+    block : list[str]
+        Classifier strings.
 
-    Returns:
+    Returns
+    -------
+    list[str]
         The "X.Y" versions they declare.
+
     """
     return [m.group(1) for m in map(MINOR.match, block) if m]
 
 
 def bare_major(block: list[str]) -> str | None:
-    """Extract the bare-major version from a classifier block.
+    """
+    Extract the bare-major version from a classifier block.
 
-    Args:
-        block: Classifier strings.
+    Parameters
+    ----------
+    block : list[str]
+        Classifier strings.
 
-    Returns:
+    Returns
+    -------
+    str | None
         The major, or None when the block declares none.
+
     """
     found = [m.group(1) for m in map(MAJOR.match, block) if m]
     return found[0] if found else None
 
 
-def describe(
-    before: list[str], wanted: list[str], floors: tuple[str | None, str]
-) -> str:
-    """Summarise the change for the pull request body.
-
-    Args:
-        before: The classifier block as it was.
-        wanted: The classifier block as it will be.
-        floors: The old and new requires-python floors.
-
-    Returns:
-        Markdown describing what moved.
+def changes(before: list[str], wanted: list[str]) -> list[str]:
     """
-    was_floor, floor = floors
+    List the classifier movements between two blocks.
+
+    Parameters
+    ----------
+    before : list[str]
+        The classifier block as it was.
+    wanted : list[str]
+        The classifier block as it will be.
+
+    Returns
+    -------
+    list[str]
+        Markdown bullets, empty when only the floor moved.
+
+    """
     old, new = minors(before), minors(wanted)
-    added = [v for v in new if v not in old]
-    dropped = [v for v in old if v not in new]
     was_major, now_major = bare_major(before), bare_major(wanted)
     only = [c for c in before if ONLY.match(c)]
+    bullets = []
 
+    added = [v for v in new if v not in old]
+    if added:
+        bullets.append(f"- **Added:** {', '.join(added)}")
+    dropped = [v for v in old if v not in new]
+    if dropped:
+        bullets.append(f"- **Dropped (end-of-life):** {', '.join(dropped)}")
+    if was_major and now_major and was_major != now_major:
+        move = f"`Python :: {was_major}` -> `Python :: {now_major}`"
+        bullets.append(f"- **Major line:** {move}")
+    if only:
+        bullets.append(f"- **Removed redundant marker:** `{only[0]}`")
+    return bullets
+
+
+def describe(before: list[str], wanted: list[str], floors: Floors) -> str:
+    """
+    Summarise the change for the pull request body.
+
+    Parameters
+    ----------
+    before : list[str]
+        The classifier block as it was.
+    wanted : list[str]
+        The classifier block as it will be.
+    floors : Floors
+        The old and new requires-python floors.
+
+    Returns
+    -------
+    str
+        Markdown describing what moved.
+
+    """
+    was_floor, floor = floors
+    bullets = changes(before, wanted)
+    if was_floor != floor:
+        bump = f"`>={was_floor}` -> `>={floor}`"
+        bullets.append(f"- **`requires-python`:** {bump}")
+
+    declared = ", ".join(minors(wanted))
     lines = [
         "The Python versions declared in `pyproject.toml` no longer match",
         "the versions upstream supports, per",
         "[endoflife.date](https://endoflife.date/python).",
         "",
-    ]
-    if added:
-        lines.append(f"- **Added:** {', '.join(added)}")
-    if dropped:
-        lines.append(f"- **Dropped (end-of-life):** {', '.join(dropped)}")
-    if was_major and now_major and was_major != now_major:
-        move = f"`Python :: {was_major}` -> `Python :: {now_major}`"
-        lines.append(f"- **Major line:** {move}")
-    if only:
-        lines.append(f"- **Removed redundant marker:** `{only[0]}`")
-    if was_floor != floor:
-        lines.append(f"- **`requires-python`:** `>={was_floor}` -> `>={floor}`")
-    lines += [
+        *bullets,
         "",
-        f"Declared set is now: {', '.join(new)}.",
+        f"Declared set is now: {declared}.",
         "",
         "Opened automatically by the `Python Versions Sync` workflow.",
     ]
     return "\n".join(lines) + "\n"
 
 
+def publish(body: str) -> None:
+    """
+    Record the change for the workflow and the pull request body.
+
+    Parameters
+    ----------
+    body : str
+        Markdown describing what moved.
+
+    """
+    body_file = os.environ.get("PR_BODY_FILE")
+    if body_file:
+        Path(body_file).write_text(body, encoding="utf-8")
+    emit("changed", "true")
+    sys.stdout.write(body)
+
+
 def main() -> None:
     """Rewrite pyproject.toml when its declaration has drifted."""
     active = read_active(os.environ.get("ACTIVE_VERSIONS", "").strip())
-
-    if not PYPROJECT.is_file():
-        fail("pyproject.toml not found")
-
-    document = tomlkit.parse(PYPROJECT.read_text(encoding="utf-8"))
-    project = document.get("project")
-    if project is None:
-        fail("pyproject.toml has no [project] table")
-
-    requires = str(project.get("requires-python", "")).strip()
-    match = FLOOR.search(requires)
-    was_floor = match.group(1) if match else None
-    floor = max([f for f in (was_floor, active[0]) if f], key=key)
-    supported = [v for v in active if key(v) >= key(floor)]
-    if not supported:
-        fail(f"floor {was_floor} excludes every active version")
+    document, project = load_project()
+    was_floor, floor, supported = resolve(project, active)
 
     classifiers = project.get("classifiers")
     if classifiers is None:
@@ -326,14 +473,7 @@ def main() -> None:
     if was_floor != floor:
         project["requires-python"] = f">={floor}"
     PYPROJECT.write_text(tomlkit.dumps(document), encoding="utf-8")
-
-    body = describe(before, wanted, (was_floor, floor))
-    body_file = os.environ.get("PR_BODY_FILE")
-    if body_file:
-        Path(body_file).write_text(body, encoding="utf-8")
-
-    emit("changed", "true")
-    sys.stdout.write(body)
+    publish(describe(before, wanted, (was_floor, floor)))
 
 
 if __name__ == "__main__":

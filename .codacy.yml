@@ -1,0 +1,9 @@
+# Codacy analysis scope.
+#
+# CI workflow definitions and the helper scripts they run are never
+# shipped in the published package, so findings there fail the quality
+# gate without describing any risk to users of this project. This
+# mirrors the scope already set for SonarQube Cloud in
+# .sonarcloud.properties.
+exclude_paths:
+  - ".github/**"

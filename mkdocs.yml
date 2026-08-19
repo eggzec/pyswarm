@@ -15,8 +15,8 @@ theme:
   name: material
   features:
     - content.code.copy
-  logo: _static/favicon.ico
-  favicon: _static/favicon.ico
+  logo: assets/pyswarm-icon.svg
+  favicon: assets/pyswarm-icon.png
 
 markdown_extensions:
   - attr_list

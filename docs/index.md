@@ -1,4 +1,4 @@
-![PySwarm](assets/pyswarm-banner.png)
+![PySwarm](https://raw.githubusercontent.com/eggzec/pyswarm/master/docs/assets/pyswarm-banner.png)
 
 # PySwarm
 

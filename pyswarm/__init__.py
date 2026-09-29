@@ -229,7 +229,8 @@ def pso(  # noqa: PLR0912, PLR0913, PLR0914, PLR0915, PLR0917
         If *func* is not callable.
     ValueError
         If bounds are mismatched or any upper bound is not strictly greater
-        than the corresponding lower bound.
+        than the corresponding lower bound, or if any *intvar* index is
+        outside ``[0, ndim - 1]``.
     """
     if kwargs is None:
         kwargs = {}
@@ -258,6 +259,10 @@ def pso(  # noqa: PLR0912, PLR0913, PLR0914, PLR0915, PLR0917
 
     S: int = swarmsize  # noqa N806
     D: int = len(lb)  # noqa N806
+
+    if intvar is not None and any(not 0 <= i < D for i in intvar):
+        msg = f"intvar indices must be in [0, {D - 1}], got {list(intvar)}"
+        raise ValueError(msg)
 
     # --- Build objective + feasibility wrappers ---
     obj = partial(_obj_wrapper, func, args, kwargs)

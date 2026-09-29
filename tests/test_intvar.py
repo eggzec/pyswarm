@@ -21,3 +21,14 @@ def test_intvar_solutions_are_integers() -> None:
     if not np.isclose(fopt, 0.0, atol=0.1):
         msg = f"Expected fopt near 0.0, got {fopt}"
         raise AssertionError(msg)
+
+
+def test_intvar_out_of_range_raises() -> None:
+    for bad in ([-1], [2], [0, -2]):
+        try:
+            pso(integer_func, [0, 0], [5, 5], intvar=bad, swarmsize=5)
+        except ValueError:
+            pass
+        else:
+            msg = f"Expected ValueError for intvar={bad}"
+            raise AssertionError(msg)

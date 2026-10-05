@@ -44,12 +44,8 @@ def test_intvar_boundary_indices_are_accepted(intvar: list[int]) -> None:
         maxiter=5,
         seed=0,
     )
-    if result.x.shape != (2,):
-        msg = f"Expected x of shape (2,), got {result.x.shape}"
-        raise AssertionError(msg)
-    if not np.allclose(result.x[intvar], np.round(result.x[intvar])):
-        msg = f"Expected integer values at {intvar}, got {result.x}"
-        raise AssertionError(msg)
+    np.testing.assert_equal(result.x.shape, (2,))
+    np.testing.assert_array_equal(result.x[intvar], np.round(result.x[intvar]))
 
 
 @pytest.mark.parametrize("bad", [[0.5], [1.0], [True, False]])
@@ -72,6 +68,4 @@ def test_intvar_accepts_any_iterable(
         seed=0,
         maxiter=200,
     )
-    if not np.allclose(result.x, np.round(result.x)):
-        msg = f"Expected integer solution, got {result.x}"
-        raise AssertionError(msg)
+    np.testing.assert_array_equal(result.x, np.round(result.x))

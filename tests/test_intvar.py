@@ -1,4 +1,5 @@
 import numpy as np
+import pytest
 
 from pyswarm import pso
 
@@ -23,12 +24,27 @@ def test_intvar_solutions_are_integers() -> None:
         raise AssertionError(msg)
 
 
-def test_intvar_out_of_range_raises() -> None:
-    for bad in ([-1], [2], [0, -2]):
-        try:
-            pso(integer_func, [0, 0], [5, 5], intvar=bad, swarmsize=5)
-        except ValueError:
-            pass
-        else:
-            msg = f"Expected ValueError for intvar={bad}"
-            raise AssertionError(msg)
+@pytest.mark.parametrize("bad", [[-1], [2], [0, -2]])
+def test_intvar_out_of_range_raises(bad: list[int]) -> None:
+    with pytest.raises(ValueError, match="intvar indices"):
+        pso(integer_func, [0, 0], [5, 5], intvar=bad, swarmsize=5)
+
+
+@pytest.mark.parametrize("intvar", [[], [1]])
+def test_intvar_boundary_indices_are_accepted(intvar: list[int]) -> None:
+    # [] disables integer rounding; [1] is the last valid index (ndim - 1).
+    result = pso(
+        integer_func,
+        [0, 0],
+        [5, 5],
+        intvar=intvar,
+        swarmsize=5,
+        maxiter=5,
+        seed=0,
+    )
+    if result.x.shape != (2,):
+        msg = f"Expected x of shape (2,), got {result.x.shape}"
+        raise AssertionError(msg)
+    if not np.allclose(result.x[intvar], np.round(result.x[intvar])):
+        msg = f"Expected integer values at {intvar}, got {result.x}"
+        raise AssertionError(msg)

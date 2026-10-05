@@ -1,3 +1,5 @@
+from collections.abc import Callable
+
 import numpy as np
 import pytest
 
@@ -47,4 +49,29 @@ def test_intvar_boundary_indices_are_accepted(intvar: list[int]) -> None:
         raise AssertionError(msg)
     if not np.allclose(result.x[intvar], np.round(result.x[intvar])):
         msg = f"Expected integer values at {intvar}, got {result.x}"
+        raise AssertionError(msg)
+
+
+@pytest.mark.parametrize("bad", [[0.5], [1.0], [True, False]])
+def test_intvar_non_integer_raises(bad: list[object]) -> None:
+    with pytest.raises(TypeError, match="intvar must contain integer"):
+        pso(integer_func, [0, 0], [5, 5], intvar=bad, swarmsize=5)
+
+
+@pytest.mark.parametrize("make", [iter, tuple, np.asarray])
+def test_intvar_accepts_any_iterable(
+    make: Callable[[list[int]], object],
+) -> None:
+    # iter() is a one-shot iterator: validation must not exhaust it.
+    result = pso(
+        integer_func,
+        [0, 0],
+        [5, 5],
+        intvar=make([0, 1]),
+        swarmsize=30,
+        seed=0,
+        maxiter=200,
+    )
+    if not np.allclose(result.x, np.round(result.x)):
+        msg = f"Expected integer solution, got {result.x}"
         raise AssertionError(msg)

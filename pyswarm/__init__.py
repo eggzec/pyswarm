@@ -226,7 +226,8 @@ def pso(  # noqa: PLR0912, PLR0913, PLR0914, PLR0915, PLR0917
     Raises
     ------
     TypeError
-        If *func* is not callable.
+        If *func* is not callable, or if *intvar* contains non-integer
+        entries (floats and booleans are rejected).
     ValueError
         If bounds are mismatched or any upper bound is not strictly greater
         than the corresponding lower bound, or if any *intvar* index is
@@ -260,9 +261,18 @@ def pso(  # noqa: PLR0912, PLR0913, PLR0914, PLR0915, PLR0917
     S: int = swarmsize  # noqa N806
     D: int = len(lb)  # noqa N806
 
-    if intvar is not None and any(not 0 <= i < D for i in intvar):
-        msg = f"intvar indices must be in [0, {D - 1}], got {list(intvar)}"
-        raise ValueError(msg)
+    if intvar is not None:
+        # list() first so a generator is not exhausted by the checks below.
+        intvar = np.asarray(list(intvar))
+        # Skip the dtype check when empty: np.asarray([]) is float64.
+        if intvar.size and intvar.dtype.kind not in "iu":
+            msg = f"intvar must contain integer indices, got {intvar.dtype}"
+            raise TypeError(msg)
+        if np.any((intvar < 0) | (intvar >= D)):
+            msg = (
+                f"intvar indices must be in [0, {D - 1}], got {intvar.tolist()}"
+            )
+            raise ValueError(msg)
 
     # --- Build objective + feasibility wrappers ---
     obj = partial(_obj_wrapper, func, args, kwargs)

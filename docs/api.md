@@ -153,11 +153,13 @@ pso(
 ### Raises
 
 `TypeError`
-: Raised when `func` is not callable.
+: Raised when `func` is not callable, or when `intvar` contains non-integer
+  entries (floats and booleans are rejected).
 
 `ValueError`
-: Raised when lower and upper bounds have different lengths, or when any
-  upper bound is not strictly greater than its corresponding lower bound.
+: Raised when lower and upper bounds have different lengths, when any
+  upper bound is not strictly greater than its corresponding lower bound, or
+  when any `intvar` index is outside `[0, ndim - 1]`.
 
 ---
 

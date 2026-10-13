@@ -55,6 +55,7 @@ fortran_link_args = []
 if host_machine.system() == 'windows'
   if fc.get_id() == 'gcc'
     fortran_link_args += [
+      '-static',
       '-static-libgfortran',
       '-static-libgcc',
       '-static-libquadmath',

@@ -49,17 +49,21 @@ f2py_target = custom_target(
   command: [f2py, '@INPUT@', '--lower', '--build-dir', meson.current_build_dir()]
 )
 
-if host_machine.system() == 'windows' and cc.get_id() in ['gcc', 'clang']
-  fortran_link_args = [
-    '-static',
-    '-static-libgfortran',
-    '-static-libgcc',
-    '-static-libquadmath',
-    '-static-libstdc++',
-    '-lquadmath',
-  ]
-else
-  fortran_link_args = []
+fc = meson.get_compiler('fortran')
+
+fortran_link_args = []
+if host_machine.system() == 'windows'
+  if fc.get_id() == 'gcc'
+    fortran_link_args += [
+      '-static-libgfortran',
+      '-static-libgcc',
+      '-static-libquadmath',
+      '-static-libstdc++',
+      '-lquadmath',
+    ]
+  elif fc.get_id() in ['llvm', 'flang']
+    fortran_link_args += ['-lflang_rt.runtime']
+  endif
 endif
 
 py.extension_module(

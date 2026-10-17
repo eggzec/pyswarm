@@ -62,7 +62,7 @@ if host_machine.system() == 'windows'
       '-static-libstdc++',
       '-lquadmath',
     ]
-  elif fc.get_id() in ['llvm', 'flang']
+  elif fc.get_id() in ['llvm', 'flang', 'llvm-flang', 'flang-new']
     fortran_link_args += ['-lflang_rt.runtime']
   endif
 endif
